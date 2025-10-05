@@ -26,6 +26,12 @@ importers:
       lucide-react:
         specifier: ^0.544.0
         version: 0.544.0(react@19.2.0)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.0(react@19.2.0)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
@@ -36,6 +42,12 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.2.0
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.2.0(@types/react@19.2.0)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -655,6 +667,14 @@ packages:
   '@types/node@24.6.2':
     resolution: {integrity: sha512-d2L25Y4j+W3ZlNAeMKcy7yDsK425ibcAOO2t7aPTz6gNMH0z2GThtwENCDc0d/Pw9wgyRqE5Px1wkV7naz8ang==}
 
+  '@types/react-dom@19.2.0':
+    resolution: {integrity: sha512-brtBs0MnE9SMx7px208g39lRmC5uHZs96caOJfTjFcYSLHNamvaSMfJNagChVNkup2SdtOxKX1FDBkRSJe1ZAg==}
+    peerDependencies:
+      '@types/react': ^19.2.0
+
+  '@types/react@19.2.0':
+    resolution: {integrity: sha512-1LOH8xovvsKsCBq1wnT4ntDUdCJKmnEakhsuoUSy6ExlHCkGP2hqnatagYTgFk6oeL0VU31u7SNjunPN+GchtA==}
+
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
 
@@ -797,6 +817,9 @@ packages:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
     engines: {node: '>=4'}
     hasBin: true
+
+  csstype@3.1.3:
+    resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -1407,6 +1430,11 @@ packages:
   radix3@1.1.2:
     resolution: {integrity: sha512-b484I/7b8rDEdSDKckSSBA8knMpcdsXudlE/LNL639wFoHKwLbEkQFZHWEYwDC0wa0FKUcCY+GAF73Z7wxNVFA==}
 
+  react-dom@19.2.0:
+    resolution: {integrity: sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==}
+    peerDependencies:
+      react: ^19.2.0
+
   react@19.2.0:
     resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
     engines: {node: '>=0.10.0'}
@@ -1477,6 +1505,9 @@ packages:
 
   sass-formatter@0.7.9:
     resolution: {integrity: sha512-CWZ8XiSim+fJVG0cFLStwDvft1VI7uvXdCNJYXhDvowiv+DsbD1nXLiQ4zrE5UBvj5DWZJ93cwN0NX5PMsr1Pw==}
+
+  scheduler@0.27.0:
+    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
   semver@7.7.2:
     resolution: {integrity: sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==}
@@ -2299,6 +2330,14 @@ snapshots:
     dependencies:
       undici-types: 7.13.0
 
+  '@types/react-dom@19.2.0(@types/react@19.2.0)':
+    dependencies:
+      '@types/react': 19.2.0
+
+  '@types/react@19.2.0':
+    dependencies:
+      csstype: 3.1.3
+
   '@types/unist@3.0.3': {}
 
   '@ungap/structured-clone@1.3.0': {}
@@ -2507,6 +2546,8 @@ snapshots:
       source-map-js: 1.2.1
 
   cssesc@3.0.0: {}
+
+  csstype@3.1.3: {}
 
   debug@4.4.3:
     dependencies:
@@ -3257,6 +3298,11 @@ snapshots:
 
   radix3@1.1.2: {}
 
+  react-dom@19.2.0(react@19.2.0):
+    dependencies:
+      react: 19.2.0
+      scheduler: 0.27.0
+
   react@19.2.0: {}
 
   readdirp@4.1.2: {}
@@ -3397,6 +3443,8 @@ snapshots:
   sass-formatter@0.7.9:
     dependencies:
       suf-log: 2.5.3
+
+  scheduler@0.27.0: {}
 
   semver@7.7.2: {}
 
