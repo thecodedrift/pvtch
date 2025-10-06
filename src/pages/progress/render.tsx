@@ -57,6 +57,7 @@ export const Render: React.FC = () => {
 
   // the text style should be the color of fg1, with a stroke of bgcolor on the outside
   const textStyle = {
+    fontSize: `20vh`,
     color: `#${shifting ? options.bgcolor : fgcolor1}`,
     WebkitTextStroke: `0.25em #${shifting ? fgcolor1 : options.bgcolor}`,
     paintOrder: "stroke fill",
@@ -76,8 +77,24 @@ export const Render: React.FC = () => {
       const containerWidth = completedRef.current.offsetWidth;
       const mustTranslate = maxInfoContainer > containerWidth;
 
+      // Calculate how much we need to translate to make the text fully visible
+      // We only need to translate by the amount that's currently hidden
+      let translateAmount = maxInfoContainer - containerWidth;
+
+      // Ensure we don't translate so far that the text goes off the right edge of the screen
+      const maxTranslate =
+        document.body.clientWidth - containerWidth - maxInfoContainer;
+      if (translateAmount > maxTranslate) {
+        translateAmount = maxTranslate;
+      }
+
+      // Don't translate if it would make things worse
+      if (translateAmount < 0) {
+        translateAmount = 0;
+      }
+
       setShifting(mustTranslate);
-      setTranslate(mustTranslate ? maxInfoContainer : 0);
+      setTranslate(mustTranslate ? translateAmount : 0);
     };
 
     // Check on mount and when options change
@@ -133,7 +150,9 @@ export const Render: React.FC = () => {
                 ...textStyle,
                 transform: `translateX(${translate}px)`,
               }}
-              className={`flex h-full w-full flex-col items-end justify-center gap-2 px-2 font-bold whitespace-nowrap transition-all ease-in-out`}
+              className={`flex h-full w-full flex-col justify-center gap-[0.1em] px-2 font-bold whitespace-nowrap transition-all ease-in-out ${
+                shifting ? "items-start" : "items-end"
+              }`}
             >
               {options.goaltext && options.goaltext.length > 0 && (
                 <div id="goal" ref={goalRef}>
