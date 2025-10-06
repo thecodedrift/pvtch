@@ -1,7 +1,8 @@
 ---
 import LiveLayout from "../../layouts/live.astro";
+import { Render } from "./render";
 ---
 
 <LiveLayout title="Progress Bar">
-  <p>My page content, wrapped in a layout!</p>
+  <Render client:only />
 </LiveLayout>
