@@ -1,5 +1,6 @@
 ---
 import "../styles/globals.css";
+import Logo from "../../public/pvtch.svg";
 
 const { title } = Astro.props;
 ---
@@ -13,7 +14,9 @@ const { title } = Astro.props;
   <body>
     <nav class="mx-auto my-4 flex max-w-3xl flex-row items-center gap-2">
       <a href="/" class="flex items-center gap-2 text-xl font-bold">
-        <img src="/pvtch.svg" alt="PVTCH" class="inline h-6 w-6" />
+        <Logo
+          class="inline h-10 w-10 text-[#37c6f4] *:[stroke-width:20]! *:[stroke-miterlimit:20]!"
+        />
         <span>PVTCH</span></a
       >
     </nav>
