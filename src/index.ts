@@ -49,7 +49,11 @@ export class PvtchBackend extends DurableObject<Env> {
   }
 
   async set(token: string, value: number | string): Promise<number | string> {
-    await this.ctx.storage.put(token, value);
+    await this.env.PVTCH_KV.put(token, value.toString(), {
+      // expires in 24 hours
+      expirationTtl: TTL,
+    });
+
     return value;
   }
 }
