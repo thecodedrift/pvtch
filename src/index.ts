@@ -1,6 +1,8 @@
 import { AutoRouter, withContent, cors, IRequest, json } from "itty-router";
 import { DurableObject } from "cloudflare:workers";
 
+const TTL = 86400; // 1 day
+
 /**
  * A Durable Object's behavior is defined in an exported Javascript class
  * PvtchBackend is designed to provide a single input gate for mutations of data. It's effectively
@@ -40,7 +42,7 @@ export class PvtchBackend extends DurableObject<Env> {
     // await this.ctx.storage.put(token, next);
     await this.env.PVTCH_KV.put(token, next.toString(), {
       // expires in 24 hours
-      expirationTtl: 86400,
+      expirationTtl: TTL,
     });
 
     return next;
