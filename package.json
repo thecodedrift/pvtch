@@ -25,5 +25,8 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev"
+  },
+  "dependencies": {
+    "itty-router": "^5.0.22"
   }
 }

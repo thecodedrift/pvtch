@@ -1,3 +1,4 @@
+import { AutoRouter, withContent, cors, IRequest, json } from "itty-router";
 import { DurableObject } from "cloudflare:workers";
 
 /**
@@ -14,7 +15,7 @@ import { DurableObject } from "cloudflare:workers";
  */
 
 /** A Durable Object's behavior is defined in an exported Javascript class */
-export class MyDurableObject extends DurableObject<Env> {
+export class PvtchBackend extends DurableObject<Env> {
   /**
    * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
    * 	`DurableObjectStub::get` for a given identifier (no-op constructors can be omitted)
@@ -32,13 +33,64 @@ export class MyDurableObject extends DurableObject<Env> {
    *
    * @returns The greeting to be sent back to the Worker
    */
-  async sayHello(): Promise<string> {
-    let result = this.ctx.storage.sql
-      .exec("SELECT 'Hello, World!' as greeting")
-      .one() as { greeting: string };
-    return result.greeting;
+  async increment(token: string, value: number): Promise<number> {
+    let next = (await this.ctx.storage.get<number>("value")) || 0;
+    next += value;
+
+    // You do not have to worry about a concurrent request having modified the value in storage.
+    // "input gates" will automatically protect against unwanted concurrency.
+    // Read-modify-write is safe.
+    await this.ctx.storage.put(token, next);
+
+    return next;
+  }
+
+  async set(token: string, value: number | string): Promise<number | string> {
+    await this.ctx.storage.put(token, value);
+    return value;
   }
 }
+
+// get preflight and corsify pair
+const { preflight, corsify } = cors();
+const router = AutoRouter({
+  before: [preflight],
+  finally: [corsify],
+});
+
+router.get("/", async (req) => {
+  return json({ error: "no token provided" }, { status: 400 });
+});
+
+router.get("/:token", async (req) => {
+  const { token } = req.params as { token: string };
+  return json(
+    { error: "no action provided (get/set/increment)" },
+    { status: 400 }
+  );
+});
+
+router.all<IRequest, [Env]>(
+  "/:token/increment",
+  withContent,
+  async (request, env) => {
+    const { token } = request.params as { token: string };
+    const amount: number = request.content?.value ?? request.query?.value ?? 1;
+    // Create a `DurableObjectId` for an instance of the `MyDurableObject`
+    // class. The name of class is used to identify the Durable Object.
+    // Requests from all Workers to the instance named
+    // will go to a single globally unique Durable Object instance.
+    const id: DurableObjectId = env.PVTCH_BACKEND.idFromName(token);
+
+    // Create a stub to open a communication channel with the Durable
+    // Object instance.
+    const stub = env.PVTCH_BACKEND.get(id);
+
+    const next = await stub.increment(token, amount);
+
+    return json({ token, value: next });
+  }
+);
 
 export default {
   /**
@@ -50,22 +102,6 @@ export default {
    * @returns The response to be sent back to the client
    */
   async fetch(request, env, ctx): Promise<Response> {
-    // Create a `DurableObjectId` for an instance of the `MyDurableObject`
-    // class. The name of class is used to identify the Durable Object.
-    // Requests from all Workers to the instance named
-    // will go to a single globally unique Durable Object instance.
-    const id: DurableObjectId = env.MY_DURABLE_OBJECT.idFromName(
-      new URL(request.url).pathname,
-    );
-
-    // Create a stub to open a communication channel with the Durable
-    // Object instance.
-    const stub = env.MY_DURABLE_OBJECT.get(id);
-
-    // Call the `sayHello()` RPC method on the stub to invoke the method on
-    // the remote Durable Object instance
-    const greeting = await stub.sayHello();
-
-    return new Response(greeting);
+    return router.fetch(request, env);
   },
 } satisfies ExportedHandler<Env>;
