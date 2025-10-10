@@ -34,7 +34,7 @@ export class PvtchBackend extends DurableObject<Env> {
    * @returns The greeting to be sent back to the Worker
    */
   async increment(token: string, value: number): Promise<number> {
-    let next = (await this.ctx.storage.get<number>("value")) || 0;
+    let next = (await this.ctx.storage.get<number>(token)) || 0;
     next += value;
 
     // You do not have to worry about a concurrent request having modified the value in storage.
