@@ -2,19 +2,10 @@ import { AutoRouter, withContent, cors, IRequest, json } from "itty-router";
 import { DurableObject } from "cloudflare:workers";
 
 /**
- * Welcome to Cloudflare Workers! This is your first Durable Objects application.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your Durable Object in action
- * - Run `npm run deploy` to publish your application
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/durable-objects
+ * A Durable Object's behavior is defined in an exported Javascript class
+ * PvtchBackend is designed to provide a single input gate for mutations of data. It's effectively
+ * an in memory queue without creating an entire queue system.
  */
-
-/** A Durable Object's behavior is defined in an exported Javascript class */
 export class PvtchBackend extends DurableObject<Env> {
   /**
    * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
@@ -68,11 +59,11 @@ const router = AutoRouter({
   finally: [corsify],
 });
 
-router.get("/", async (req) => {
+router.all("/", async (req) => {
   return json({ error: "no token provided" }, { status: 400 });
 });
 
-router.get("/:token", async (req) => {
+router.all("/:token", async (req) => {
   const { token } = req.params as { token: string };
   return json(
     { error: "no action provided (get/set/increment)" },
@@ -86,21 +77,30 @@ router.all<IRequest, [Env]>(
   async (request, env) => {
     const { token } = request.params as { token: string };
     const amount: number = request.content?.value ?? request.query?.value ?? 1;
-    // Create a `DurableObjectId` for an instance of the `MyDurableObject`
-    // class. The name of class is used to identify the Durable Object.
-    // Requests from all Workers to the instance named
-    // will go to a single globally unique Durable Object instance.
+    // Create a `DurableObjectId` for an instance of the `PvtchBackend`
+    // class. By namespacing to the token, we ensure our DO isn't conflicting
+    // with another streamer's DO
     const id: DurableObjectId = env.PVTCH_BACKEND.idFromName(token);
 
     // Create a stub to open a communication channel with the Durable
-    // Object instance.
+    // Object instance. This is what gives us the input gate behavior.
     const stub = env.PVTCH_BACKEND.get(id);
 
+    // call the method on the DO
     const next = await stub.increment(token, amount);
 
-    return json({ token, value: next });
+    return json({ token, value: `${next}` });
   }
 );
+
+router.get<IRequest, [Env]>("/:token/get", async (request, env) => {
+  const { token } = request.params as { token: string };
+
+  // go right to the KV since we don't need the input gate for reads
+  const fromKv = (await env.PVTCH_KV.get(token)) ?? "";
+
+  return json({ token, value: fromKv });
+});
 
 export default {
   /**
