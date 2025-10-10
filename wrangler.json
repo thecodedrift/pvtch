@@ -27,6 +27,12 @@
       }
     ]
   },
+  "kv_namespaces": [
+    {
+      "binding": "PVTCH_KV",
+      "id": "3588c48277284bfb8e673399f904b794"
+    }
+  ],
   "observability": {
     "enabled": true
   }

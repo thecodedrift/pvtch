@@ -34,13 +34,23 @@ export class PvtchBackend extends DurableObject<Env> {
    * @returns The greeting to be sent back to the Worker
    */
   async increment(token: string, value: number): Promise<number> {
-    let next = (await this.ctx.storage.get<number>(token)) || 0;
-    next += value;
+    // inside the DO, these are atomic operation
+    // let next = (await this.ctx.storage.get<number>(token)) || 0;
+    let fromKv = (await this.env.PVTCH_KV.get(token)) ?? "";
+    if (fromKv.length === 0) {
+      fromKv = "0";
+    }
+
+    const next = parseInt(fromKv, 10) + value;
 
     // You do not have to worry about a concurrent request having modified the value in storage.
     // "input gates" will automatically protect against unwanted concurrency.
     // Read-modify-write is safe.
-    await this.ctx.storage.put(token, next);
+    // await this.ctx.storage.put(token, next);
+    await this.env.PVTCH_KV.put(token, next.toString(), {
+      // expires in 24 hours
+      expirationTtl: 86400,
+    });
 
     return next;
   }
