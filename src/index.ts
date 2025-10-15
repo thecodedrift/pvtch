@@ -1,5 +1,8 @@
 import { router } from "./routes";
 
+// DOs
+export { PvtchBackend } from "./do/backend";
+
 export default {
   /**
    * This is the standard fetch handler for a Cloudflare Worker
