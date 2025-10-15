@@ -1,7 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
 
-const TTL = 86400; // 1 day
-
 /**
  * A Durable Object's behavior is defined in an exported Javascript class
  * PvtchBackend is designed to provide a single input gate for mutations of data. It's effectively
@@ -25,44 +23,15 @@ export class PvtchBackend extends DurableObject<Env> {
     super(ctx, env);
   }
 
-  async increment(token: string, value: number): Promise<number> {
-    let next = 0;
-
-    // use blockConcurrencyWhile to specifically ensure the DO processes one request
-    // at a time for its identifier
-    // required because PVTCH_KV is eventually consistent and we want to ensure
-    // updates arrive in order. If this becomes an issue, we can migrate to a proper queue
-    this.ctx.blockConcurrencyWhile(async () => {
-      // inside the DO, these are atomic operation
-      // let next = (await this.ctx.storage.get<number>(token)) || 0;
-      let fromKv = (await this.env.PVTCH_KV.get(token)) ?? "";
-      if (fromKv.length === 0) {
-        fromKv = "0";
-      }
-
-      next = Number.parseInt(fromKv, 10) + value;
-
-      // You do not have to worry about a concurrent request having modified the value in storage.
-      // "input gates" will automatically protect against unwanted concurrency.
-      // Read-modify-write is safe.
-      // await this.ctx.storage.put(token, next);
-      await this.env.PVTCH_KV.put(token, next.toString(), {
-        // expires in 24 hours
-        expirationTtl: TTL,
-      });
-    });
-
-    return next;
-  }
-
-  async set(token: string, value: number | string): Promise<number | string> {
-    this.ctx.blockConcurrencyWhile(async () => {
-      await this.env.PVTCH_KV.put(token, value.toString(), {
-        // expires in 24 hours
-        expirationTtl: TTL,
-      });
-    });
-
-    return value;
+  /**
+   * Adds an input gate lock, useful for serializing operations such as writes that
+   * you would normally put into a queue. DO's are a lot lighter than a full queue,
+   * as long as they are performing single operations. You should not be doing
+   * long running tasks in a DO.
+   * @param runWithLock - The async function to run with the input gate lock
+   * @returns
+   */
+  async gate(runWithLock: () => Promise<void>): Promise<void> {
+    return this.ctx.blockConcurrencyWhile(runWithLock);
   }
 }

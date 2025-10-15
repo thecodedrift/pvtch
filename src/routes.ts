@@ -31,8 +31,27 @@ router.all<IRequest, [Env]>(
     // Object instance. This is what gives us the input gate behavior.
     const stub = env.PVTCH_BACKEND.get(cdo);
 
-    // call the method on the DO
-    const next = await stub.increment(normalizedKey, amount);
+    let next = 0;
+
+    await stub.gate(async () => {
+      // inside the DO, these are atomic operation
+      // let next = (await this.ctx.storage.get<number>(token)) || 0;
+      let fromKv = (await env.PVTCH_KV.get(normalizedKey)) ?? "";
+      if (fromKv.length === 0) {
+        fromKv = "0";
+      }
+
+      next = Number.parseInt(fromKv, 10) + amount;
+
+      // You do not have to worry about a concurrent request having modified the value in storage.
+      // "input gates" will automatically protect against unwanted concurrency.
+      // Read-modify-write is safe.
+      // await this.ctx.storage.put(token, next);
+      await env.PVTCH_KV.put(token, next.toString(), {
+        // expires in 24 hours
+        expirationTtl: 86400,
+      });
+    });
 
     return json({ op: "increment", token, id, value: `${next}` });
   }
@@ -44,12 +63,18 @@ router.all<IRequest, [Env]>(
   async (request, env) => {
     const { token, id } = request.params as { token: string; id: string };
     const normalizedKey = normalizeKey(token, id);
-    const value: number = request.content?.value ?? request.query?.value ?? "";
+    const value = request.content?.value ?? request.query?.value ?? "";
     const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
     const stub = env.PVTCH_BACKEND.get(cdo);
-    const next = await stub.set(normalizedKey, value);
 
-    return json({ op: "set", token, id, value: `${next}` });
+    await stub.gate(async () => {
+      await env.PVTCH_KV.put(normalizedKey, value, {
+        // expires in 24 hours
+        expirationTtl: 86400,
+      });
+    });
+
+    return json({ op: "set", token, id, value: `${value}` });
   }
 );
 
@@ -61,18 +86,29 @@ router.all<IRequest, [Env]>(
     const normalizedKey = normalizeKey(token, id);
     const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
     const stub = env.PVTCH_BACKEND.get(cdo);
-    const next = await stub.set(normalizedKey, "");
 
-    return json({ op: "reset", token, id, value: `${next}` });
+    await stub.gate(async () => {
+      await env.PVTCH_KV.put(normalizedKey, "", {
+        // expires in 24 hours
+        expirationTtl: 86400,
+      });
+    });
+
+    return json({ op: "reset", token, id, value: "" });
   }
 );
 
 router.get<IRequest, [Env]>("/:token/kv/:id/get", async (request, env) => {
   const { token, id } = request.params as { token: string; id: string };
   const normalizedKey = normalizeKey(token, id);
+  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
+  const stub = env.PVTCH_BACKEND.get(cdo);
 
-  // go right to the KV since we don't need the input gate for reads
-  const fromKv = (await env.PVTCH_KV.get(normalizedKey)) ?? "";
+  let value = "";
 
-  return json({ op: "get", token, id, value: fromKv });
+  await stub.gate(async () => {
+    value = (await env.PVTCH_KV.get(normalizedKey)) ?? "";
+  });
+
+  return json({ op: "get", token, id, value });
 });
