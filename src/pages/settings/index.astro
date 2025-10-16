@@ -1,0 +1,11 @@
+---
+import DefaultLayout from "@/layouts/default.astro";
+import { Key } from "./components/key";
+---
+
+<DefaultLayout title="Settings">
+  <section>
+    <h2>Your Key</h2>
+    <Key client:only />
+  </section>
+</DefaultLayout>
