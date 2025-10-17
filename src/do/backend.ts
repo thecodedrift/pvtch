@@ -3,6 +3,9 @@ import { DurableObject } from "cloudflare:workers";
 // slightly longer than 24h
 const TTL = 25 * 60 * 60 * 1000;
 
+// max storage size is 5kb
+const MAX_STORAGE_SIZE = 5 * 1024;
+
 /**
  * A Durable Object's behavior is defined in an exported Javascript class
  * PvtchBackend is designed to provide a single input gate for mutations of data. It's effectively
@@ -27,6 +30,13 @@ export class PvtchBackend extends DurableObject<Env> {
   }
 
   async set(value: string): Promise<void> {
+    // value cannot exceed max storage size
+    if (value.length > MAX_STORAGE_SIZE) {
+      throw new Error(
+        `Value exceeds max storage size of ${MAX_STORAGE_SIZE} bytes`
+      );
+    }
+
     const exp = Date.now() + TTL;
     await this.ctx.storage.put("data", value);
     await this.ctx.storage.put("exp", exp);
