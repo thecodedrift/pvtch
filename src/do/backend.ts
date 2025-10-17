@@ -1,5 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 
+// slightly longer than 24h
+const TTL = 25 * 60 * 60 * 1000;
+
 /**
  * A Durable Object's behavior is defined in an exported Javascript class
  * PvtchBackend is designed to provide a single input gate for mutations of data. It's effectively
@@ -23,15 +26,23 @@ export class PvtchBackend extends DurableObject<Env> {
     super(ctx, env);
   }
 
-  /**
-   * Adds an input gate lock, useful for serializing operations such as writes that
-   * you would normally put into a queue. DO's are a lot lighter than a full queue,
-   * as long as they are performing single operations. You should not be doing
-   * long running tasks in a DO.
-   * @param runWithLock - The async function to run with the input gate lock
-   * @returns
-   */
-  async gate(runWithLock: () => Promise<void>): Promise<void> {
-    return this.ctx.blockConcurrencyWhile(runWithLock);
+  async set(value: string): Promise<void> {
+    const exp = Date.now() + TTL;
+    await this.ctx.storage.put("data", value);
+    await this.ctx.storage.put("exp", exp);
+    await this.ctx.storage.deleteAlarm(); // best effort
+    await this.ctx.storage.setAlarm(exp);
+  }
+
+  async get(): Promise<string> {
+    const value = (await this.ctx.storage.get<string>("data")) ?? "";
+    return value;
+  }
+
+  async alarm() {
+    const expires = await this.ctx.storage.get<number>("exp");
+    if (expires && expires < Date.now()) {
+      await this.ctx.storage.deleteAll();
+    }
   }
 }
