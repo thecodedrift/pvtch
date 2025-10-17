@@ -15,7 +15,7 @@ export const Render: React.FC = () => {
   const goalRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const [infoPinned, setPinInfo] = useState(true);
-  const remoteProgress = usePvtchValue(key);
+  const remoteProgress = usePvtchValue(key, params.token);
 
   const options = {
     bgcolor: params.bgcolor ?? defaults.bgcolor,
@@ -27,6 +27,7 @@ export const Render: React.FC = () => {
     decimal: paramToInt(params.decimal ?? defaults.decimal, 0),
     goaltext: params.goaltext ?? defaults.goaltext,
     id: params.id ?? defaults.id,
+    prefix: params.prefix ?? "",
   };
   const percent = Math.min(100, (options.progress / options.goal) * 100);
 
@@ -87,6 +88,10 @@ export const Render: React.FC = () => {
     };
   }, []);
 
+  if (!params.token) {
+    return null;
+  }
+
   return (
     <>
       <style>
@@ -129,11 +134,11 @@ export const Render: React.FC = () => {
                 )}
                 <div id="progress" ref={progressRef} className="font-black">
                   <span className="pr-[0.3em]">
-                    {Number.parseFloat(
-                      options.progress.toFixed(options.decimal),
-                    )}
+                    {options.prefix}
+                    {options.progress.toFixed(options.decimal)}
                   </span>
                   <span className="pr-[0.3em]">/</span>
+                  {options.prefix}
                   {options.goal.toFixed(0) ?? ""}
                 </div>
               </div>

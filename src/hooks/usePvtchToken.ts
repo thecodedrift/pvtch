@@ -23,7 +23,11 @@ const createRandomString = () => {
 const PVTCH_TOKEN_KEY = "pvtch::token";
 
 /** Retrieve the user's Pvtch token from localstorage, and if it doesn't exist, make it */
-export const usePvtchToken = () => {
+export const usePvtchToken = (existingToken?: string) => {
+  if (existingToken && existingToken.length > 0) {
+    return existingToken;
+  }
+
   const [token, setToken] = useLocalStorage(PVTCH_TOKEN_KEY, "");
   const isBrowser = useIsClient();
 

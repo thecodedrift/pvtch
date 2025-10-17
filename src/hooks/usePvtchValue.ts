@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { usePvtchToken } from "./usePvtchToken";
 import { useInterval } from "usehooks-ts";
 import { PVTCH_API } from "@/constants";
 
 const FETCH_INTERVAL = 3000; // ms
 
 /** Hook to get a value from Pvtch by key, updating every second */
-export const usePvtchValue = (key: string, interval?: number) => {
-  const token = usePvtchToken();
+export const usePvtchValue = (
+  key: string,
+  token?: string,
+  interval?: number,
+) => {
   const [value, setValue] = useState<string | undefined>(undefined);
 
   useInterval(() => {
