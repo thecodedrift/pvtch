@@ -15,6 +15,12 @@
     "moduleResolution": "node",
     /* Enable importing .json files */
     "resolveJsonModule": true,
+    /* Base directory to resolve non-relative module names. */
+    "baseUrl": ".",
+    /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
+    "paths": {
+      "@/*": ["src/*"]
+    },
 
     /* Allow JavaScript files to be a part of your program. Use the `checkJS` option to get errors from these files. */
     "allowJs": true,

@@ -2,7 +2,7 @@
   "name": "pvtch-api",
   "private": true,
   "cloudflare": {
-    "label": "Durable Objects Starter",
+    "label": "PVTCH Backend APIs",
     "products": [
       "Workers",
       "Durable Objects"
@@ -27,6 +27,7 @@
     "start": "wrangler dev"
   },
   "dependencies": {
+    "eld": "^1.0.1",
     "itty-router": "^5.0.22"
   }
 }

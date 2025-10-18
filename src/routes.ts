@@ -1,5 +1,10 @@
 import { AutoRouter, withContent, cors, IRequest, json } from "itty-router";
-import { normalizeKey } from "./fn/normalizeKey";
+import { tokenLingoTranslate } from "@/routes/[token]/lingo/translate";
+import { tokenKvIdSet } from "@/routes/[token]/kv/[id]/set";
+import { tokenKvIdReset } from "@/routes/[token]/kv/[id]/reset";
+import { tokenKvIdGet } from "@/routes/[token]/kv/[id]/get";
+import { tokenLingoConfigure } from "@/routes/[token]/lingo/configure";
+import { tokenLingoToLanguage } from "@/routes/[token]/lingo/to/[language]";
 
 // get preflight and corsify pair
 const { preflight, corsify } = cors();
@@ -14,45 +19,38 @@ router.all("/", async (req) => {
   return json({ error: "no token provided" }, { status: 400 });
 });
 
-router.all<IRequest, [Env]>(
-  "/:token/kv/:id/set",
-  withContent,
-  async (request, env) => {
-    const { token, id } = request.params as { token: string; id: string };
-    const normalizedKey = normalizeKey(token, id);
-    const value = request.content?.value ?? request.query?.value ?? "";
-    const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
-    const stub = env.PVTCH_BACKEND.get(cdo);
+/*
+Key-Value routes (storage APIs)
+*/
 
-    // stubs hold their own storage per stub via sqlite
-    await stub.set(value);
-
-    return json({ op: "set", token, id, value: `${value}` });
-  }
-);
+router.all<IRequest, [Env]>("/:token/kv/:id/set", withContent, tokenKvIdSet);
 
 router.all<IRequest, [Env]>(
   "/:token/kv/:id/reset",
   withContent,
-  async (request, env) => {
-    const { token, id } = request.params as { token: string; id: string };
-    const normalizedKey = normalizeKey(token, id);
-    const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
-    const stub = env.PVTCH_BACKEND.get(cdo);
-
-    await stub.set("");
-
-    return json({ op: "reset", token, id, value: "" });
-  }
+  tokenKvIdReset
 );
 
-router.get<IRequest, [Env]>("/:token/kv/:id/get", async (request, env) => {
-  const { token, id } = request.params as { token: string; id: string };
-  const normalizedKey = normalizeKey(token, id);
-  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
-  const stub = env.PVTCH_BACKEND.get(cdo);
+router.get<IRequest, [Env]>("/:token/kv/:id/get", tokenKvIdGet);
 
-  const value = await stub.get();
+/*
+Lingo routes (translation APIs)
+*/
 
-  return json({ op: "get", token, id, value });
-});
+router.all<IRequest, [Env]>(
+  "/:token/lingo/configure",
+  withContent,
+  tokenLingoConfigure
+);
+
+router.all<IRequest, [Env]>(
+  "/:token/lingo/translate",
+  withContent,
+  tokenLingoTranslate
+);
+
+router.all<IRequest, [Env]>(
+  "/:token/lingo/to/:language",
+  withContent,
+  tokenLingoToLanguage
+);
