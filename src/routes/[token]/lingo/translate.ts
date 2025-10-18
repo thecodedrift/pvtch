@@ -1,6 +1,7 @@
 import { eld } from "eld";
 import { IRequest, RequestHandler, text } from "itty-router";
 import { LingoConfig } from "../../../kv/lingoConfig";
+import { normalizeKey } from "@/fn/normalizeKey";
 
 const LANGUAGE_THRESHOLD = 0.2;
 
@@ -59,14 +60,12 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
-  // const kvConfig = await env.PVTCH_KV.get<Partial<LingoConfig>>(
-  //   `lingo_config_${token}`,
-  //   "json"
-  // );
-  const kvConfig: Partial<LingoConfig> = {
-    ignoreUsers: ["ohaiDrifty"],
-    language: "en",
-  };
+  const kvName = normalizeKey(token, "lingo_config");
+  const kvConfig = await env.PVTCH_KV.get<Partial<LingoConfig>>(kvName, "json");
+  // const kvConfig: Partial<LingoConfig> = {
+  //   ignoreUsers: ["ohaiDrifty"],
+  //   language: "en",
+  // };
 
   if (!kvConfig) {
     // no config, no translate
