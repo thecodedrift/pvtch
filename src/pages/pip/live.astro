@@ -3,10 +3,6 @@ import LiveLayout from "../../layouts/live.astro";
 import { Render } from "./_components/render";
 ---
 
-<script
-  is:inline
-  src="https://player.twitch.tv/js/embed/v1.js"
-  crossorigin="anonymous"></script>
 <LiveLayout title="Picture in Picture">
   <Render client:only />
 </LiveLayout>
