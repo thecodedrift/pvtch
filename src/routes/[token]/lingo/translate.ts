@@ -1,9 +1,18 @@
 import { eld } from "eld";
 import { IRequest, RequestHandler, text } from "itty-router";
-import { LingoConfig } from "../../../kv/lingoConfig";
+import {
+  LANGUAGE_THRESHOLD,
+  LingoConfig,
+  lingoConfigKey,
+} from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
+import { isValidToken } from "@/kv/twitchData";
+import pRetry from "p-retry";
 
-const LANGUAGE_THRESHOLD = 0.2;
+type LLamaTranslateResponse = {
+  translated_text?: string;
+  detected_language_code?: string;
+};
 
 /**
  * Filtering information:
@@ -14,9 +23,9 @@ const LANGUAGE_THRESHOLD = 0.2;
  *
  * test strings:
  * - hello thecod67Heart how is everyone? UwU \@curlygirlbabs
- * - Yo fui a la store to buy las uvas
- * - 내 황홀에 취해, you can't look away
- * - yo soy :3
+ * - Yo fui a la store to buy las uvas LUL
+ * - 내 황홀에 취해, you can't look away soltLaugh
+ * - yo soy :3 thecod67Coffee
  *
  * Then if we still have a message, make a KV fetch for config.
  * This ensures we're only doing language detection and AI calls when needed
@@ -47,105 +56,171 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     .flat()[0]
     .trim();
 
+  // @theCodeDrift was denkst Du über die Kontext Beschränkungen die moderne KI noch haben?
+
   const next = value
     .trim()
     .replace(/^!.*/g, "") // commands
-    .replace(/\b@[a-z0-9_]+\b/gi, "") // usernames
-    .replace(/\b[a-z][a-z0-9]+[\d]*[A-Z][a-zA-Z0-9]+\b/g, "") // most emotes
+    .replace(/(^|\W)@[a-z0-9_]+\b/gi, "") // usernames
+    .replace(/(^|\W)[a-z0-9]+[\d]*[A-Z][a-zA-Z0-9]+\b/g, "") // most emotes
+    .replace(/^[^@,-_#$%^&*)(\\}{]\[;:'"<>\?]+/gi, "") // leading symbols and gibberish
     .trim();
 
   console.log("lingo translate:", { user, next });
 
   if (next.length === 0 || user.length === 0) {
+    console.log("Skipped, no message or user", { user, next });
     return text("", { status: 200 });
   }
 
-  const kvName = normalizeKey(token, "lingo_config");
-  const kvConfig = await env.PVTCH_KV.get<Partial<LingoConfig>>(kvName, "json");
-  // const kvConfig: Partial<LingoConfig> = {
-  //   ignoreUsers: ["ohaiDrifty"],
-  //   language: "en",
-  // };
+  const userid = await isValidToken(token, env);
+
+  if (!userid) {
+    console.log("Invalid token for lingo translate", { token });
+    return text("", { status: 200 });
+  }
+
+  const kvName = normalizeKey(token, lingoConfigKey);
+  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(kvName);
+  const stub = env.PVTCH_BACKEND.get(cdo);
+  const kvConfigString = await stub.get();
+
+  let kvConfig: Partial<LingoConfig> | null = null;
+  try {
+    kvConfig = kvConfigString ? JSON.parse(kvConfigString) : null;
+  } catch (e) {
+    console.error("failed to parse lingo config:", e);
+    kvConfig = null;
+  }
 
   if (!kvConfig) {
     // no config, no translate
+    console.log("No lingo config found", { token, kvName });
+    return text("", { status: 200 });
+  }
+
+  if (!kvConfig.bots || !kvConfig.language) {
+    // incomplete config, no translate
+    console.log("Incomplete lingo config", { token, kvConfig });
     return text("", { status: 200 });
   }
 
   const config: LingoConfig = {
-    ignoreUsers: kvConfig?.ignoreUsers ?? [],
+    bots: (
+      [...(kvConfig?.bots ?? [])].filter((v) => v !== undefined) as string[]
+    ).map((v) => v.toLowerCase()),
     language: kvConfig?.language ?? "en",
   };
 
-  if (
-    config.ignoreUsers.map((v) => v.toLowerCase()).includes(user.toLowerCase())
-  ) {
+  if (config.bots.includes(user.toLowerCase())) {
+    // dont reply to ignored bots / users
+    console.log("User is in ignored bots list", { user, next });
     return text("", { status: 200 });
   }
 
   // what language is this?
   const detected = eld.detect(next);
-  const scores = Object.entries(detected.getScores())
-    .filter(([_, score]) => score >= LANGUAGE_THRESHOLD) // only over threshold
-    .filter(([lang, _]) => lang !== config.language) // remove target language
-    .sort((a, b) => b[1] - a[1]);
 
-  // no scores left after filtering
-  if (scores.length === 0) {
+  // eld abort logic
+  // 1. only language over threshold & is our target language
+  // 2. all scores is empty (zero scores)
+  const allScores = Object.entries(detected.getScores());
+  const goodScores = allScores.filter(
+    ([_, score]) => score >= LANGUAGE_THRESHOLD
+  );
+
+  if (goodScores.length === 1 && goodScores[0][0] === config.language) {
+    console.log(`Message is already in target language`, {
+      goodScores,
+      language: config.language,
+    });
     return text("", { status: 200 });
   }
+
+  if (allScores.length === 0) {
+    console.log("No detected languages from eld", { allScores });
+    return text("", { status: 200 });
+  }
+
+  console.log("Detected languages:", { allScores, goodScores });
+
+  const hasLowConfidence = goodScores.length === 0;
 
   // Llama is okay at twitch emojis, but we want to strip emoticons and smileys from the text
   const userInput = value
     .replace(/[:;x=][-o]?[)(D3Pp\\\/]/g, "") // remove smileys
     .replace(/\p{Emoji}/gu, "");
 
-  const response = (await env.AI.run(
-    "@cf/meta/llama-4-scout-17b-16e-instruct",
-    {
-      messages: [
-        {
-          role: "system",
-          content: `Translate the user's text to to ${config.language}, ignore anything which looks like a twitch emoji`,
-        },
-        {
-          role: "user",
-          content: userInput,
-        },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          type: "object",
-          properties: {
-            translated_text: {
-              type: "string",
+  let llmResponse: LLamaTranslateResponse | undefined = undefined;
+  try {
+    llmResponse = await pRetry(
+      async () => {
+        const response = (await env.AI.run(
+          "@cf/meta/llama-4-scout-17b-16e-instruct",
+          {
+            messages: [
+              {
+                role: "system",
+                content: `Translate the user's text to ${config.language}. Ignore anything which looks like a twitch emoji. Treat @usernames as literal names. Do not create line breaks.`,
+              },
+              {
+                role: "user",
+                content: userInput,
+              },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                type: "object",
+                properties: {
+                  translated_text: {
+                    type: "string",
+                  },
+                  detected_language_code: {
+                    type: "string",
+                  },
+                },
+                required: ["translated_text", "detected_language_code"],
+              },
             },
-            detected_language_code: {
-              type: "string",
-            },
-          },
-          required: ["translated_text", "detected_language_code"],
-        },
-      },
-    }
-  )) as {
-    response?: {
-      translated_text?: string;
-      detected_language_code?: string;
-    };
-  };
+          }
+        )) as {
+          response?: LLamaTranslateResponse;
+        };
 
-  // safeguard against missing fields
-  if (
-    !response.response?.translated_text ||
-    !response.response?.detected_language_code
-  ) {
+        // safeguard against missing fields
+        if (
+          !response.response?.translated_text ||
+          !response.response?.detected_language_code
+        ) {
+          throw new Error(
+            "Lingo translate missing fields:" +
+              JSON.stringify({
+                response: response?.response,
+              })
+          );
+        }
+
+        return response.response;
+      },
+      {
+        retries: 3,
+      }
+    );
+  } catch (e) {
+    console.error("Lingo translate failed after retries:", e);
+    return text("", { status: 200 });
+  }
+
+  // did we translate into our own language by mistake?
+  if (llmResponse.detected_language_code === config.language) {
     return text("", { status: 200 });
   }
 
   return text(
-    `[${response.response.detected_language_code}] ${response.response.translated_text}`,
+    `[${llmResponse.detected_language_code}${hasLowConfidence ? "?" : ""}] ${
+      llmResponse.translated_text
+    }`,
     { status: 200 }
   );
 };

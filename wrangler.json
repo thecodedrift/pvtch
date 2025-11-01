@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pvtch-api",
   "main": "src/index.ts",
+  "compatibility_flags": ["nodejs_compat"],
   "compatibility_date": "2025-04-01",
   "upload_source_maps": true,
   "migrations": [
@@ -31,6 +32,10 @@
     {
       "binding": "PVTCH_KV",
       "id": "3588c48277284bfb8e673399f904b794"
+    },
+    {
+      "binding": "PVTCH_ACCOUNTS",
+      "id": "bc19b133947e4936b7ce4d808b27023e"
     }
   ],
   "ai": {
