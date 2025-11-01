@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { paramToFloat, paramToKey } from "@/lib/params";
 import { useHashParameters } from "@/hooks/useHashParameters";
 
+let renders = 0;
+
 export const BasicBar: React.FC<
   Options & {
     progress: number;
@@ -164,7 +166,7 @@ export const ProgressBar: React.FC = () => {
     debug?: string;
   }>();
   const configKey = `${id}-config`;
-  const [rawConfig] = usePvtchValue(configKey);
+  const [rawConfig] = usePvtchValue(configKey, token);
   const rawRemoteProgress = useUpdatingPvtchValue(id ?? "", token);
   const remoteProgress = paramToFloat(rawRemoteProgress ?? "0", 0);
   const config = useMemo(() => {
@@ -177,10 +179,6 @@ export const ProgressBar: React.FC = () => {
     }
   }, [rawConfig]);
 
-  const namespaceId = useMemo(() => {
-    return paramToKey(id ?? "default", "default");
-  }, [config]);
-
   if (!token) {
     console.log("No token provided for progress bar. No render.");
     return null;
@@ -191,9 +189,7 @@ export const ProgressBar: React.FC = () => {
       {debug === "1" ? (
         <>
           <pre>
-            {JSON.stringify({
-              config,
-            })}
+            config ({Date.now()}): {rawConfig}
           </pre>
         </>
       ) : (

@@ -43,17 +43,19 @@ export const usePvtchMutator = (key: string) => {
 };
 
 /** Get a value from PVTCH k/v with a refetch API */
-export const usePvtchValue = (key: string) => {
+export const usePvtchValue = (key: string, existingToken?: string) => {
   const [token] = useCookie("pvtch_token");
   const [value, setValue] = useState<string | undefined>(undefined);
 
+  const activeToken = existingToken ?? token;
+
   const refetch = useCallback(async () => {
-    if (!token || !key) {
+    if (!activeToken || !key) {
       return;
     }
 
     const url = new URL(PVTCH_API);
-    url.pathname = `/${token}/kv/${key}/get`;
+    url.pathname = `/${activeToken}/kv/${key}/get`;
 
     const response = await fetch(url.toString());
     if (!response.ok) {
