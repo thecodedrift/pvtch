@@ -158,7 +158,11 @@ export const BasicBar: React.FC<
 };
 
 export const ProgressBar: React.FC = () => {
-  const { token, id } = useHashParameters<{ token?: string; id?: string }>();
+  const { token, id, debug } = useHashParameters<{
+    token?: string;
+    id?: string;
+    debug?: string;
+  }>();
   const configKey = `${id}-config`;
   const [rawConfig] = usePvtchValue(configKey);
   const rawRemoteProgress = useUpdatingPvtchValue(id ?? "", token);
@@ -183,15 +187,27 @@ export const ProgressBar: React.FC = () => {
   }
 
   return (
-    <BasicBar
-      progress={remoteProgress}
-      fg1={config?.fg1 ?? defaults.fg1}
-      fg2={config?.fg2 ?? defaults.fg2}
-      bg={config?.bg ?? defaults.bg}
-      goal={config?.goal ?? defaults.goal}
-      text={config?.text ?? defaults.text}
-      decimal={config?.decimal ?? defaults.decimal}
-      prefix={config?.prefix ?? defaults.prefix}
-    />
+    <>
+      {debug === "1" ? (
+        <>
+          <pre>
+            {JSON.stringify({
+              config,
+            })}
+          </pre>
+        </>
+      ) : (
+        <BasicBar
+          progress={remoteProgress}
+          fg1={config?.fg1 ?? defaults.fg1}
+          fg2={config?.fg2 ?? defaults.fg2}
+          bg={config?.bg ?? defaults.bg}
+          goal={config?.goal ?? defaults.goal}
+          text={config?.text ?? defaults.text}
+          decimal={config?.decimal ?? defaults.decimal}
+          prefix={config?.prefix ?? defaults.prefix}
+        />
+      )}
+    </>
   );
 };
