@@ -12,8 +12,9 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
+  --brand: oklch(0.7723 0.1327 224.76);
   --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.7723 0.1327 224.76);
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -48,6 +49,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
+  --brand: oklch(0.7723 0.1327 224.76);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
@@ -77,6 +79,7 @@
 }
 
 @theme inline {
+  --color-brand: var(--brand);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -122,4 +125,19 @@
   body {
     @apply bg-background text-foreground;
   }
+  ol {
+    @apply list-outside list-decimal pl-6;
+  }
+  ul {
+    @apply list-outside list-disc pl-6;
+  }
+}
+
+#starlight__sidebar a[href^="https"] span:after {
+  /* Apply your styles here */
+  /* You can also add icons, e.g., using a background image or content property */
+  content: " ⇾";
+  display: inline-block;
+  transform: rotate(-45deg);
+  margin-left: 0.25rem;
 }

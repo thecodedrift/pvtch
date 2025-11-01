@@ -1,0 +1,66 @@
+---
+title: Progress Bar
+description: A simple progress bar that looks great, with the value set by your own local Twitch bot
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+import Configure from "./_configure";
+import { SourceURL, UpdateURL } from "./_urls";
+
+<aside>A simple and clean progress bar</aside>
+
+Progress bars are just boxes that fill up. But making one that works with your streaming software? Now that's a party trickl! To update the progress bar, you change the <code>progress=</code> value in the URL. We'll take care of the math.
+
+## Storing Progress
+
+One of the easiest ways is a `currency` that is attached to only your account. Most streamer bots (MixItUp, Firebot, Streamer.bot, etc) support currency, and it'll even persist between streams.
+
+## Configure
+
+<div className="not-content">
+  <Configure client:only />
+</div>
+
+## Usage
+
+### Your Source URL
+This is your source URL you add to OBS. It will automatically scale your font size, percentage progress, and gradients to the size you set in the source.
+
+Keep this URL secret, it contains your token that allows updating the progress bar.
+
+<SourceURL client:only />
+
+### Updating the Value
+Once you've got the source in OBS, you will update the value from your bot's software. The idea is that you (and only you) know what you're tracking, what the goal is, and how close you are.
+
+To **update** the progress bar, call the following URL with your new value (between 0 and your goal):
+
+<UpdateURL client:only />
+
+<Tabs syncKey='bot-type'>
+  <TabItem label="Firebot">
+    In Firebot, use an [HTTP Request Effect](https://docs.firebot.app/v5/core/effects#list-of-firebot-effects) to call the **update** URL with the new progress value.
+
+    Example URL to set progress to 75:
+    ```
+    https://api.pvtch.com/YOUR-SECRET-TOKEN/kv/YOUR-WIDGET-ID/set?value=75
+    ```
+  </TabItem>
+  <TabItem label="MixItUp">
+    In MixItUp, use a [Web Request Action](https://wiki.mixitupapp.com/en/actions/web-request-action) to call the **update** URL with the new progress value.
+
+    Example URL to set progress to 75:
+    ```
+    https://api.pvtch.com/YOUR-SECRET-TOKEN/kv/YOUR-WIDGET-ID/set?value=75
+    ```
+  </TabItem>
+  <TabItem label="Streamer.bot">
+    In Streamer.bot, use a [fetch-url Sub Action](https://docs.streamer.bot/api/sub-actions/core/network/fetch-url) to call the **update** URL with the
+    new progress value.
+
+    Example URL to set progress to 75:
+    ```
+    https://api.pvtch.com/YOUR-SECRET-TOKEN/kv/YOUR-WIDGET-ID/set?value=75
+    ```
+  </TabItem>
+</Tabs>

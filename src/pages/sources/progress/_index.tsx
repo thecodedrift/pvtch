@@ -1,41 +1,38 @@
-import { useHashParameters } from "@/hooks/useHashParameters";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
-import { defaults, prefix, type Options } from "./options";
-import { usePvtchValue } from "@/hooks/usePvtchValue";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { defaults, type Options } from "./_options";
+import { usePvtchValue, useUpdatingPvtchValue } from "@/hooks/usePvtchValue";
 import { cn } from "@/lib/utils";
-import { paramToFloat, paramToInt, paramToKey } from "@/lib/params";
+import { paramToFloat, paramToKey } from "@/lib/params";
+import { useHashParameters } from "@/hooks/useHashParameters";
 
-export const Render: React.FC = () => {
-  const params = useHashParameters<Options>(defaults);
-  const namespaceId = paramToKey(params.id, defaults.id);
-  const key = `${prefix}${namespaceId}`;
-
+export const BasicBar: React.FC<
+  Options & {
+    progress: number;
+    embedded?: boolean;
+  }
+> = (props) => {
   const completedRef = useRef<HTMLDivElement>(null);
   const goalRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const [infoPinned, setPinInfo] = useState(true);
-  const remoteProgress = usePvtchValue(key, params.token);
 
   const options = {
-    bgcolor: params.bgcolor ?? defaults.bgcolor,
-    fgcolor1: params.fgcolor1 ?? defaults.fgcolor1,
-    fgcolor2: params.fgcolor2 ?? defaults.fgcolor1, // fall back to fgcolor1
-    goal: Math.max(1, paramToInt(params.goal ?? defaults.goal, 100)),
-    progress:
-      remoteProgress === undefined ? 0 : paramToFloat(remoteProgress, 0),
-    decimal: paramToInt(params.decimal ?? defaults.decimal, 0),
-    goaltext: params.goaltext ?? defaults.goaltext,
-    id: params.id ?? defaults.id,
-    prefix: params.prefix ?? "",
+    bgcolor: props?.bg ?? defaults.bg,
+    fgcolor1: props?.fg1 ?? defaults.fg1,
+    fgcolor2: props?.fg2 ?? defaults.fg1, // fall back to fgcolor1
+    goal: Math.max(1, props.goal),
+    progress: props.progress ?? 0,
+    decimal: props.decimal,
+    text: props?.text ?? defaults.text,
   };
   const percent = Math.min(100, (options.progress / options.goal) * 100);
 
   // the text style should be the color of fg1, with a stroke of bgcolor on the outside
   const textStyle = {
-    fontSize: options.goaltext && options.goaltext.length > 0 ? `30vh` : "60vh",
-    color: `#${infoPinned ? options.bgcolor : options.fgcolor1}`,
-    WebkitTextStroke: `0.25em #${infoPinned ? options.fgcolor1 : options.bgcolor}`,
+    fontSize: options.text && options.text.length > 0 ? `30cqh` : "60cqh",
+    color: `${infoPinned ? options.bgcolor : options.fgcolor1}`,
+    WebkitTextStroke: `0.25em ${infoPinned ? options.fgcolor1 : options.bgcolor}`,
     paintOrder: "stroke fill",
   };
 
@@ -88,20 +85,21 @@ export const Render: React.FC = () => {
     };
   }, []);
 
-  if (!params.token) {
-    return null;
-  }
-
   return (
     <>
       <style>
         {`
         :root {
-          --my-gradient: linear-gradient(25deg, #${options.fgcolor1} 0%, #${options.fgcolor2} 100%);
+          --my-gradient: linear-gradient(25deg, ${options.fgcolor1} 0%, ${options.fgcolor2} 100%);
         }
         `}
       </style>
-      <div className="absolute top-0 left-0 h-screen w-screen overflow-hidden">
+      <div
+        className={cn(
+          "absolute top-0 left-0 overflow-hidden",
+          props.embedded ? "h-full w-full" : "h-screen w-screen",
+        )}
+      >
         <div className="flex h-full w-full flex-row items-center">
           <div
             id="completed"
@@ -109,6 +107,7 @@ export const Render: React.FC = () => {
             style={{
               width: `${percent}%`,
               background: `var(--my-gradient)`,
+              containerType: "size",
             }}
             className="relative h-full w-full transition-all ease-in-out"
           >
@@ -127,18 +126,18 @@ export const Render: React.FC = () => {
                   infoPinned ? "items-start" : "items-end",
                 )}
               >
-                {options.goaltext && options.goaltext.length > 0 && (
+                {options.text && options.text.length > 0 && (
                   <div id="goal" ref={goalRef}>
-                    {options.goaltext}
+                    {options.text}
                   </div>
                 )}
                 <div id="progress" ref={progressRef} className="font-black">
                   <span className="pr-[0.3em]">
-                    {options.prefix}
+                    {props.prefix}
                     {options.progress.toFixed(options.decimal)}
                   </span>
                   <span className="pr-[0.3em]">/</span>
-                  {options.prefix}
+                  {props.prefix}
                   {options.goal.toFixed(0) ?? ""}
                 </div>
               </div>
@@ -148,12 +147,51 @@ export const Render: React.FC = () => {
             id="remaining"
             className="h-full w-full flex-grow transition-all ease-in-out"
             style={{
-              backgroundColor: `#${options.bgcolor}`,
+              backgroundColor: `${options.bgcolor}`,
               width: `${100 - percent}%`,
             }}
           ></div>
         </div>
       </div>
     </>
+  );
+};
+
+export const ProgressBar: React.FC = () => {
+  const { token, id } = useHashParameters<{ token?: string; id?: string }>();
+  const configKey = `${id}-config`;
+  const [rawConfig] = usePvtchValue(configKey);
+  const rawRemoteProgress = useUpdatingPvtchValue(id ?? "", token);
+  const remoteProgress = paramToFloat(rawRemoteProgress ?? "0", 0);
+  const config = useMemo(() => {
+    if (!rawConfig) return undefined;
+
+    try {
+      return rawConfig ? (JSON.parse(rawConfig) as Options) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [rawConfig]);
+
+  const namespaceId = useMemo(() => {
+    return paramToKey(id ?? "default", "default");
+  }, [config]);
+
+  if (!token) {
+    console.log("No token provided for progress bar. No render.");
+    return null;
+  }
+
+  return (
+    <BasicBar
+      progress={remoteProgress}
+      fg1={config?.fg1 ?? defaults.fg1}
+      fg2={config?.fg2 ?? defaults.fg2}
+      bg={config?.bg ?? defaults.bg}
+      goal={config?.goal ?? defaults.goal}
+      text={config?.text ?? defaults.text}
+      decimal={config?.decimal ?? defaults.decimal}
+      prefix={config?.prefix ?? defaults.prefix}
+    />
   );
 };
