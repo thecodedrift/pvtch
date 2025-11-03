@@ -126,7 +126,7 @@ export default function Configure() {
                 <Input
                   id="bots"
                   autoComplete="off"
-                  placeholder="#000000"
+                  placeholder="yourbot, anotherbot, yetanotherbot"
                   name={field.name}
                   value={field.state.value}
                   onBlur={() => {
