@@ -63,6 +63,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     .replace(/^!.*/g, "") // commands
     .replace(/(^|\W)@[a-z0-9_]+\b/gi, "") // usernames
     .replace(/(^|\W)[a-z0-9]+[\d]*[A-Z][a-zA-Z0-9]+\b/g, "") // most emotes
+    .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
     .replace(/^[^@,-_#$%^&*)(\\}{]\[;:'"<>\?]+/gi, "") // leading symbols and gibberish
     .trim();
 
@@ -148,6 +149,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
 
   // Llama is okay at twitch emojis, but we want to strip emoticons and smileys from the text
   const userInput = value
+    .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
     .replace(/[:;x=][-o]?[)(D3Pp\\\/]/g, "") // remove smileys
     .replace(/\p{Emoji}/gu, "");
 
@@ -214,6 +216,17 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
 
   // did we translate into our own language by mistake?
   if (llmResponse.detected_language_code === config.language) {
+    return text("", { status: 200 });
+  }
+
+  // more than 2 char = undefined
+  if (
+    llmResponse.detected_language_code?.length &&
+    llmResponse.detected_language_code.length > 2
+  ) {
+    console.log("Invalid detected language code length", {
+      detected_language_code: llmResponse.detected_language_code,
+    });
     return text("", { status: 200 });
   }
 
