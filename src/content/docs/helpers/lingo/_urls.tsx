@@ -6,11 +6,18 @@ import { Button } from "@/components/ui/button";
 import { CopyIcon } from "lucide-react";
 import { toast } from "sonner";
 
-export const TranslateAllURL: React.FC = () => {
+export const TranslateAllURL: React.FC<{ replacements?: string[][] }> = ({
+  replacements,
+}) => {
   const [url, setUrl] = useState("");
   useEffect(() => {
     const unsubscribe = translateAllUrl.subscribe((url) => {
-      setUrl(url);
+      let next = url;
+      for (const [find, replace] of replacements ?? []) {
+        next = next.replaceAll(find, replace);
+      }
+
+      setUrl(next);
     });
 
     return () => {
