@@ -23,4 +23,8 @@ notes: Leaves the twitch emote. Removing them is too problematic
 
 input: Blad is blad
 output: [none]
-none: Highest score is target language, even if below confidence threshold
+notes: Highest score is target language, even if below confidence threshold
+
+input: galing na curlyg5Wow
+output: good morning
+notes: Need to drop twitch emotes

@@ -43,6 +43,14 @@ const isMeaningfulString = (str: string) => {
   );
 };
 
+const removeTwitchEmotes = (str: string) => {
+  // soltLaugh, thecod67Heart, foxwitHehe, hum1GoldLabubu,
+  return str.replace(
+    /(?:^|\s|\b)[a-z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+(?:$|\s|\b)/g,
+    ""
+  );
+};
+
 /**
  * Filtering information:
  * 1. Remove command prefixed values starting with !
@@ -172,7 +180,16 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   const hasLowConfidence = goodScores.length === 0;
 
   // Llama is okay at twitch emojis, but we want to strip emoticons and smileys from the text
-  const userInput = next; // TODO: further cleaning?
+  const userInput = removeTwitchEmotes(next).trim();
+
+  if (userInput.length === 0) {
+    console.log("No meaningful text after removing twitch emotes", {
+      user,
+      next,
+      userInput,
+    });
+    return text("", { status: 200 });
+  }
 
   console.log(`Planned translation: ${userInput}`);
 
