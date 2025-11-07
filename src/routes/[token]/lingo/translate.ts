@@ -14,6 +14,35 @@ type LLamaTranslateResponse = {
   detected_language_code?: string;
 };
 
+const ALWAYS_IGNORED_USERS = [
+  "streamelements",
+  "streamlabs",
+  "nightbot",
+  "moobot",
+  "wizebot",
+  "phantombot",
+  "sery_bot",
+  "coebot",
+  "ankhbot",
+  "fossabot",
+  "twitch",
+].map((v) => v.toLowerCase());
+
+const normalizeString = (str: string) =>
+  str
+    .trim()
+    .replace(/^!.*/g, "") // commands
+    .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
+    .trim();
+
+const isMeaningfulString = (str: string) => {
+  return (
+    normalizeString(str)
+      .replace(/(^|\W)@\w+/gi, "") // usernames
+      .trim().length > 0
+  );
+};
+
 /**
  * Filtering information:
  * 1. Remove command prefixed values starting with !
@@ -56,18 +85,14 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     .flat()[0]
     .trim();
 
-  // @theCodeDrift was denkst Du über die Kontext Beschränkungen die moderne KI noch haben?
+  // skip always ignored users
+  if (ALWAYS_IGNORED_USERS.includes(user.toLowerCase())) {
+    console.log("User is in always ignored bots list", { user, value });
+    return text("", { status: 200 });
+  }
 
-  const next = value
-    .trim()
-    .replace(/^!.*/g, "") // commands
-    .replace(/(^|\W)@[a-z0-9_]+\b/gi, "") // usernames
-    .replace(/(^|\W)[a-z0-9]+[\d]*[A-Z][a-zA-Z0-9]+\b/g, "") // most emotes
-    .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
-    .replace(/^[^@,-_#$%^&*)(\\}{]\[;:'"<>\?]+/gi, "") // leading symbols and gibberish
-    .trim();
-
-  console.log("lingo translate:", { user, next });
+  const next = normalizeString(value);
+  console.log("incoming lingo translate:", { user, next });
 
   if (next.length === 0 || user.length === 0) {
     console.log("Skipped, no message or user", { user, next });
@@ -138,20 +163,14 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
-  if (allScores.length === 0) {
-    console.log("No detected languages from eld", { allScores });
-    return text("", { status: 200 });
-  }
-
-  console.log("Detected languages:", { allScores, goodScores });
+  console.log("ELD detected languages:", { allScores, goodScores });
 
   const hasLowConfidence = goodScores.length === 0;
 
   // Llama is okay at twitch emojis, but we want to strip emoticons and smileys from the text
-  const userInput = value
-    .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
-    .replace(/[:;x=][-o]?[)(D3Pp\\\/]/g, "") // remove smileys
-    .replace(/\p{Emoji}/gu, "");
+  const userInput = next; // TODO: further cleaning?
+
+  console.log(`Planned translation: ${userInput}`);
 
   let llmResponse: LLamaTranslateResponse | undefined = undefined;
   try {
@@ -216,6 +235,24 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
 
   // did we translate into our own language by mistake?
   if (llmResponse.detected_language_code === config.language) {
+    console.log("Detected language is target language, skipping", {
+      detected_language_code: llmResponse.detected_language_code,
+      target_language: config.language,
+    });
+    return text("", { status: 200 });
+  }
+
+  console.log("Finished: ", {
+    input: normalizeString(userInput),
+    rawResponse: llmResponse?.translated_text,
+    meaningful: isMeaningfulString(llmResponse?.translated_text ?? ""),
+  });
+
+  // not a meaningful translation (unicode symbols like a flip)
+  if (!isMeaningfulString(llmResponse?.translated_text ?? "")) {
+    console.log("Translation is not meaningful", {
+      translated_text: llmResponse?.translated_text,
+    });
     return text("", { status: 200 });
   }
 
@@ -230,10 +267,12 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  const translatedText = (llmResponse.translated_text ?? "").trim();
+
   return text(
-    `[${llmResponse.detected_language_code}${hasLowConfidence ? "?" : ""}] ${
-      llmResponse.translated_text
-    }`,
+    `[${llmResponse.detected_language_code}${
+      hasLowConfidence ? "?" : ""
+    }] ${translatedText}`,
     { status: 200 }
   );
 };
