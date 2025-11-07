@@ -20,3 +20,7 @@ notes: Short string test. May not be sv, but any other language w/ "hej"
 input: Soy fría thecod67Lost
 output: [es] I am cold thecod67Lost
 notes: Leaves the twitch emote. Removing them is too problematic
+
+input: Blad is blad
+output: [none]
+none: Highest score is target language, even if below confidence threshold
