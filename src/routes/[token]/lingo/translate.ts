@@ -155,20 +155,13 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     ([_, score]) => score >= LANGUAGE_THRESHOLD
   );
 
-  // scores are [string,number][]
-  // sort the list and filter to only the top scores, including ties
-  allScores.sort((a, b) => b[1] - a[1]);
-  const highestScore = allScores[0];
-  const bestScores = allScores.filter(
-    ([_, score]) => score === highestScore[1]
-  );
-  const likelySameLanguage = bestScores.some(
-    ([lang, _]) => lang === config.language
-  );
-
-  if (likelySameLanguage) {
-    console.log(`Message is already in target language`, {
+  if (
+    goodScores.length > 0 &&
+    goodScores.some(([lang, _]) => lang === config.language)
+  ) {
+    console.log(`Message is likely in target language`, {
       goodScores,
+      allScores,
       language: config.language,
     });
     return text("", { status: 200 });
