@@ -12,7 +12,7 @@ import pRetry from "p-retry";
 type LLamaTranslateResponse = {
   translated_text?: string;
   detected_language_code?: string;
-  mostly_non_text?: boolean;
+  is_mostly_non_text?: boolean;
 };
 
 const ALWAYS_IGNORED_USERS = [
@@ -35,14 +35,6 @@ const normalizeString = (str: string) =>
     .replace(/^!.*/g, "") // commands
     .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
     .trim();
-
-const isMeaningfulString = (str: string) => {
-  return (
-    normalizeString(str)
-      .replace(/(^|\W)@\w+/gi, "") // usernames
-      .trim().length > 0
-  );
-};
 
 // cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
 // because we don't know the target language yet
@@ -236,7 +228,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
                 role: "system",
                 content: [
                   `Translate the user's text to ${config.language}.`,
-                  "Treat @usernames as literal names.",
+                  "Treat @usernames as literal names and preserve them.",
                   "Do not create line breaks.",
                   "Identify the language as a 2-letter language code.",
                   "Identify if the string is mostly non text, inlcuding: @usernames, twitchEmojis, emoticons, and kaomoji.",
@@ -258,11 +250,15 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
                   detected_language_code: {
                     type: "string",
                   },
-                  mostly_non_text: {
+                  is_mostly_non_text: {
                     type: "boolean",
                   },
                 },
-                required: ["translated_text", "detected_language_code"],
+                required: [
+                  "translated_text",
+                  "detected_language_code",
+                  "is_mostly_non_text",
+                ],
               },
             },
           }
@@ -274,7 +270,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
         if (
           !response.response?.translated_text ||
           !response.response?.detected_language_code ||
-          response.response?.mostly_non_text === undefined
+          response.response?.is_mostly_non_text === undefined
         ) {
           throw new Error(
             "Lingo translate missing fields:" +
@@ -307,7 +303,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   }
 
   // not a meaningful translation (unicode symbols like a flip)
-  if (llmResponse.mostly_non_text === true) {
+  if (llmResponse.is_mostly_non_text === true) {
     console.log("Translation is mostly non-text, skipping", {
       detected_language_code: llmResponse.detected_language_code,
       translated_text: llmResponse.translated_text,
