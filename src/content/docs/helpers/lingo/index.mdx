@@ -11,6 +11,10 @@ import firebotChatMessageSetup from "./_assets/firebot/chat_message_setup.png";
 import firebotHttpRequest from "./_assets/firebot/http_request.png";
 import firebotConditional from "./_assets/firebot/conditional.png";
 import firebotChat from "./_assets/firebot/chat.png";
+import mixitupChatReceived from "./_assets/mixitup/chat_received.png";
+import mixitupSpecialIdentifier from "./_assets/mixitup/special_identifier.png";
+import mixitupWebRequest from "./_assets/mixitup/web_request.png";
+import mixitupConditionalChat from "./_assets/mixitup/conditional_chat.png";
 
 <aside>Bring your own language(s)</aside>
 
@@ -76,7 +80,56 @@ When translating messages from chat, you'll send the entire message, along with 
   <TabItem label="Streamer.bot">
     Coming soon. If you'd like to write this guide, please reach out on GitHub!
   </TabItem>
-  <TabItem label="MixItUp">Coming soon. If you'd like to write this guide, please reach out on GitHub!</TabItem>
+  <TabItem label="MixItUp">
+    <h3>Create a new Chat Message Received Event</h3>
+    
+    The Chat Message Received event will trigger whenever a message is sent in your chat. You'll be encoding the message, sending it to PVTCH, and then checking if your bot needs to reply. You can find the event under `Events` => `Chat` (not Twitch).
+
+    <img src={mixitupChatReceived.src} alt="Creating a Chat Received Event in MixItUp" class="my-4 border rounded-lg shadow-md" />
+
+    <h3>The Three Event Actions</h3>
+    Your MixItUp Event will have three actions:
+
+    1. Special Identifer Action - to prepare the message for PVTCH
+    2. Web Request Action - send the message to PVTCH
+    3. Conditional Effect Action + Chat Action - send translation to your channel
+
+    <h3>1. Special Identifier Action</h3>
+
+    **Special Identifier Name**: `encodedMessage`
+
+    **Value**: `uriescape($message)`
+
+    Make Globally Usable: ❌ \
+    Is Math Expression: ❌ \
+    Replace Special Identifiers In Functions: ❌
+
+    <img src={mixitupSpecialIdentifier.src} alt="Setting Up the MixItUp Special Identifier" class="my-4 border rounded-lg shadow-md" />
+
+    <h3>2. Web Request Action</h3>
+
+    **Web Request URL**: Use the following URL, unique to your Lingo + Firebot configuration:
+    <TranslateAllURL client:only replacements={[["SENDINGUSER", "$user"], ["MESSAGEHERE", "$encodedMessage"]]} />
+
+    **Response Processing Type**: `Plain Text`
+
+    <img src={mixitupWebRequest.src} alt="The MixItUp Web Request Action" class="my-4 border rounded-lg shadow-md" />
+
+    <h3>3. Conditional and Chat Actions</h3>
+    Add a Conditional Action to check if the response from PVTCH got any data back.
+
+    **First Value**: `$webrequestresult`
+
+    **Compare**: `<>`
+
+    **Second Value**: ` ` (blank)
+
+    <h4>Chat Message Action</h4>
+
+    **Chat Message**: `@$user ImTyping $webrequestresult`
+
+    <img src={mixitupConditionalChat.src} alt="MixItUp Conditional Action Setup" class="my-4 border rounded-lg shadow-md" />
+  </TabItem>
   <TabItem label="Custom">Coming soon. If you'd like to write this guide, please reach out on GitHub!</TabItem>
 </Tabs>
 
