@@ -28,6 +28,7 @@
     "start": "wrangler dev"
   },
   "dependencies": {
+    "@formatjs/intl-segmenter": "^11.7.12",
     "base-x": "^5.0.1",
     "eld": "^1.0.1",
     "itty-router": "^5.0.22",

@@ -28,3 +28,7 @@ notes: Highest score is target language, even if below confidence threshold
 input: galing na curlyg5Wow
 output: good morning
 notes: Need to drop twitch emotes
+
+input: kumusta na tayo, @ohaiDrifty ? f0x64Marbie
+output: kumusta na tayo, @ohaiDrifty ?
+notes: Should preserve the username which looks like a twitch emote

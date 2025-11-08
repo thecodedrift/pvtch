@@ -12,6 +12,7 @@ import pRetry from "p-retry";
 type LLamaTranslateResponse = {
   translated_text?: string;
   detected_language_code?: string;
+  mostly_non_text?: boolean;
 };
 
 const ALWAYS_IGNORED_USERS = [
@@ -43,12 +44,42 @@ const isMeaningfulString = (str: string) => {
   );
 };
 
+// cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
+// because we don't know the target language yet
 const removeTwitchEmotes = (str: string) => {
-  // soltLaugh, thecod67Heart, foxwitHehe, hum1GoldLabubu,
-  return str.replace(
-    /(?:^|\s|\b)[a-z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+(?:$|\s|\b)/g,
-    ""
-  );
+  const segmenter = new Intl.Segmenter("en-US", { granularity: "word" });
+  const chunks = Array.from(segmenter.segment(str));
+  let usernameFlag = false;
+  const output: string[] = [];
+
+  // walk through the segments. If we hit an @, then turn on the "username" flag
+  // if we hit a word segment and the flag is set, continue
+  // remove any twich emotes we know of, replace result
+  // return the username flag to off
+  for (const chunk of chunks) {
+    if (chunk.segment === "@") {
+      usernameFlag = true;
+      output.push(chunk.segment);
+      continue;
+    }
+
+    if (usernameFlag && chunk.isWordLike) {
+      output.push(chunk.segment);
+      usernameFlag = false;
+      continue;
+    }
+
+    if (!chunk.isWordLike) {
+      output.push(chunk.segment);
+      continue;
+    }
+
+    output.push(
+      chunk.segment.replace(/[a-z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+/g, "")
+    );
+  }
+
+  return output.join("");
 };
 
 /**
@@ -203,7 +234,13 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
             messages: [
               {
                 role: "system",
-                content: `Translate the user's text to ${config.language}. Ignore anything which looks like a twitch emoji. Treat @usernames as literal names. Do not create line breaks.`,
+                content: [
+                  `Translate the user's text to ${config.language}.`,
+                  "Treat @usernames as literal names.",
+                  "Do not create line breaks.",
+                  "Identify the language as a 2-letter language code.",
+                  "Identify if the string is mostly non text, inlcuding: @usernames, twitchEmojis, emoticons, and kaomoji.",
+                ].join(" "),
               },
               {
                 role: "user",
@@ -221,6 +258,9 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
                   detected_language_code: {
                     type: "string",
                   },
+                  mostly_non_text: {
+                    type: "boolean",
+                  },
                 },
                 required: ["translated_text", "detected_language_code"],
               },
@@ -233,7 +273,8 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
         // safeguard against missing fields
         if (
           !response.response?.translated_text ||
-          !response.response?.detected_language_code
+          !response.response?.detected_language_code ||
+          response.response?.mostly_non_text === undefined
         ) {
           throw new Error(
             "Lingo translate missing fields:" +
@@ -254,6 +295,8 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  console.log("LLM Response:", { input: userInput, llmResponse });
+
   // did we translate into our own language by mistake?
   if (llmResponse.detected_language_code === config.language) {
     console.log("Detected language is target language, skipping", {
@@ -263,16 +306,11 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
-  console.log("Finished: ", {
-    input: normalizeString(userInput),
-    rawResponse: llmResponse?.translated_text,
-    meaningful: isMeaningfulString(llmResponse?.translated_text ?? ""),
-  });
-
   // not a meaningful translation (unicode symbols like a flip)
-  if (!isMeaningfulString(llmResponse?.translated_text ?? "")) {
-    console.log("Translation is not meaningful", {
-      translated_text: llmResponse?.translated_text,
+  if (llmResponse.mostly_non_text === true) {
+    console.log("Translation is mostly non-text, skipping", {
+      detected_language_code: llmResponse.detected_language_code,
+      translated_text: llmResponse.translated_text,
     });
     return text("", { status: 200 });
   }
