@@ -25,7 +25,8 @@
     "check": "tsc && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "start": "wrangler dev"
+    "start": "wrangler dev",
+    "wrangler": "wrangler"
   },
   "dependencies": {
     "@formatjs/intl-segmenter": "^11.7.12",

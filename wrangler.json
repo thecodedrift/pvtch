@@ -5,6 +5,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "compatibility_date": "2025-04-01",
   "upload_source_maps": true,
+  "vars": {
+    "TWITCH_CLIENT_ID": "dinofhiya3gwjh5feq4di7oeurrxdp",
+    "TWITCH_REDIRECT_URI": "https://api.pvtch.com/auth/callback"
+  },
   "migrations": [
     {
       "new_sqlite_classes": ["MyDurableObject"],
