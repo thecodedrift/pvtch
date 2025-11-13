@@ -1,4 +1,3 @@
-import process from "process";
 import { IRequest, RequestHandler } from "itty-router";
 
 export const authStart: RequestHandler<IRequest, [Env]> = async (
@@ -6,11 +5,11 @@ export const authStart: RequestHandler<IRequest, [Env]> = async (
   env
 ) => {
   const u = new URL("https://id.twitch.tv/oauth2/authorize");
-  u.searchParams.set("client_id", process.env.TWITCH_CLIENT_ID || "");
+  u.searchParams.set("client_id", env.TWITCH_CLIENT_ID ?? "");
   u.searchParams.set("response_type", "code");
   u.searchParams.set(
     "redirect_uri",
-    process.env.TWITCH_REDIRECT_URI || "http://localhost:8787/auth/callback"
+    env.TWITCH_REDIRECT_URI ?? "http://localhost:8787/auth/callback"
   );
   u.searchParams.set("scope", "");
 
