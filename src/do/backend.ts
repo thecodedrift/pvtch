@@ -1,5 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 
+type TTLStrategy = "PRESERVE_ON_UPDATE" | "PRESERVE_ON_FETCH";
+export type TTLOptions = {
+  strategy: TTLStrategy;
+  ttlMs: number;
+};
+
 // slightly longer than 24h
 const TTL = 25 * 60 * 60 * 1000;
 
@@ -29,7 +35,7 @@ export class PvtchBackend extends DurableObject<Env> {
     super(ctx, env);
   }
 
-  async set(value: string): Promise<void> {
+  async set(value: string, options?: TTLOptions): Promise<void> {
     // value cannot exceed max storage size
     if (value.length > MAX_STORAGE_SIZE) {
       throw new Error(
@@ -37,7 +43,13 @@ export class PvtchBackend extends DurableObject<Env> {
       );
     }
 
-    const exp = Date.now() + TTL;
+    const ttl = options?.ttlMs ?? TTL;
+    const strategy = options?.strategy ?? "PRESERVE_ON_UPDATE";
+
+    await this.ctx.storage.put("strategy", strategy);
+    await this.ctx.storage.put("ttl", ttl);
+
+    const exp = Date.now() + ttl;
     await this.ctx.storage.put("data", value);
     await this.ctx.storage.put("exp", exp);
     await this.ctx.storage.deleteAlarm(); // best effort
@@ -45,6 +57,18 @@ export class PvtchBackend extends DurableObject<Env> {
   }
 
   async get(): Promise<string> {
+    const strategy =
+      (await this.ctx.storage.get<TTLStrategy>("strategy")) ??
+      "PRESERVE_ON_UPDATE";
+
+    if (strategy === "PRESERVE_ON_FETCH") {
+      const ttl = (await this.ctx.storage.get<number>("ttl")) ?? TTL;
+      const exp = Date.now() + ttl;
+      await this.ctx.storage.put("exp", exp);
+      await this.ctx.storage.deleteAlarm(); // best effort
+      await this.ctx.storage.setAlarm(exp);
+    }
+
     const value = (await this.ctx.storage.get<string>("data")) ?? "";
     return value;
   }
