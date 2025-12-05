@@ -5,8 +5,8 @@ import {
   lingoConfigKey,
 } from "@/kv/lingoConfig";
 import { isValidToken } from "@/kv/twitchData";
-import { eld } from "eld";
 import { IRequest, RequestHandler, text } from "itty-router";
+import { detect } from "tinyld";
 
 export const tokenLingoToLanguage: RequestHandler<IRequest, [Env]> = async (
   request,
@@ -67,14 +67,10 @@ export const tokenLingoToLanguage: RequestHandler<IRequest, [Env]> = async (
   }
 
   // what language is this?
-  const detected = eld.detect(next);
-  const scores = Object.entries(detected.getScores())
-    .filter(([_, score]) => score >= LANGUAGE_THRESHOLD) // only over threshold
-    .filter(([lang, _]) => lang !== language) // remove target language
-    .sort((a, b) => b[1] - a[1]);
+  const detected = detect(next);
 
   // no scores left after filtering
-  if (scores.length === 0) {
+  if (!detected) {
     return text("", { status: 200 });
   }
 
