@@ -1,18 +1,16 @@
-import { eld } from "eld";
+import { detectAll } from "tinyld";
 import { IRequest, RequestHandler, text } from "itty-router";
-import {
-  LANGUAGE_THRESHOLD,
-  LingoConfig,
-  lingoConfigKey,
-} from "../../../kv/lingoConfig";
+import { LingoConfig, lingoConfigKey } from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
 import { isValidToken } from "@/kv/twitchData";
 import pRetry from "p-retry";
+import MurmurHash3 from "imurmurhash";
 
 type LLamaTranslateResponse = {
   translated_text?: string;
   detected_language_code?: string;
-  is_mostly_non_text?: boolean;
+  detected_language_name?: string;
+  confidence?: number;
 };
 
 const ALWAYS_IGNORED_USERS = [
@@ -175,32 +173,55 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
-  // what language is this?
-  const detected = eld.detect(next);
+  let performTranslation = true;
+  let saveToCache = false;
+  const cacheKey = new MurmurHash3(
+    next.toLowerCase().replaceAll(/\s+/g, " ").trim()
+  )
+    .result()
+    .toString(16);
+  const guesses = detectAll(next).sort((a, b) => b.accuracy - a.accuracy);
+  let identifiedLanguage: string | undefined = undefined;
 
-  // eld abort logic
-  // 1. only language over threshold & is our target language
-  // 2. all scores is empty (zero scores)
-  const allScores = Object.entries(detected.getScores());
-  const goodScores = allScores.filter(
-    ([_, score]) => score >= LANGUAGE_THRESHOLD
-  );
+  console.log("TinyLD language guesses:", next, { guesses });
+  console.log("Cache key for message:", { next, cacheKey });
 
-  if (
-    goodScores.length > 0 &&
-    goodScores.some(([lang, _]) => lang === config.language)
-  ) {
-    console.log(`Message is likely in target language`, {
-      goodScores,
-      allScores,
-      language: config.language,
+  // optimizations: Try to avoid translation calls if possible
+  if (guesses.length === 1 && guesses[0].accuracy === 1) {
+    performTranslation = guesses[0].lang !== config.language;
+    identifiedLanguage = guesses[0].lang;
+  } else {
+    if (next.length < 16) {
+      // below 16 characters, tinyld is less than 90% accurate
+      // try a kv call to see if this is a cached translation
+      const existing = await env.PVTCH_TRANSLATIONS.get(cacheKey);
+      if (existing) {
+        console.log("Found cached translation, returning", {
+          cacheKey,
+          existing,
+        });
+        return text(existing, { status: 200 });
+      }
+
+      saveToCache = true;
+      performTranslation = true; // definitely try
+    } else {
+      // accuracy is between 90-95% for most languages in the 16-24 range
+      // high accuracy on the detection +95% > 24 characters
+      performTranslation = guesses[0].lang !== config.language;
+      identifiedLanguage = guesses[0].lang;
+    }
+  }
+
+  // early abort if we think translation is not needed
+  if (!performTranslation) {
+    console.log("TinyLD indicates no translation needed", {
+      identifiedLanguage,
+      targetLanguage: config.language,
+      guesses,
     });
     return text("", { status: 200 });
   }
-
-  console.log("ELD detected languages:", { allScores, goodScores });
-
-  const hasLowConfidence = goodScores.length === 0;
 
   // Llama is okay at twitch emojis, but we want to strip emoticons and smileys from the text
   const userInput = removeTwitchEmotes(next).trim();
@@ -230,8 +251,8 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
                   `Translate the user's text to ${config.language}.`,
                   "Treat @usernames as literal names and preserve them.",
                   "Do not create line breaks.",
-                  "Identify the language as a 2-letter language code.",
-                  "Identify if the string is mostly non text, inlcuding: @usernames, twitchEmojis, emoticons, and kaomoji.",
+                  `Identify the language's name and it's 2 letter ISO code.`,
+                  "Return the confidence of the translation as a float between 0 and 1.",
                 ].join(" "),
               },
               {
@@ -250,14 +271,18 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
                   detected_language_code: {
                     type: "string",
                   },
-                  is_mostly_non_text: {
-                    type: "boolean",
+                  detected_language_name: {
+                    type: "string",
+                  },
+                  confidence: {
+                    type: "number",
                   },
                 },
                 required: [
                   "translated_text",
                   "detected_language_code",
-                  "is_mostly_non_text",
+                  "detected_language_name",
+                  "confidence",
                 ],
               },
             },
@@ -268,9 +293,10 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
 
         // safeguard against missing fields
         if (
-          !response.response?.translated_text ||
-          !response.response?.detected_language_code ||
-          response.response?.is_mostly_non_text === undefined
+          response.response?.translated_text === undefined ||
+          response.response?.detected_language_code === undefined ||
+          response.response?.detected_language_name === undefined ||
+          response.response?.confidence === undefined
         ) {
           throw new Error(
             "Lingo translate missing fields:" +
@@ -303,31 +329,33 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   }
 
   // not a meaningful translation (unicode symbols like a flip)
-  if (llmResponse.is_mostly_non_text === true) {
-    console.log("Translation is mostly non-text, skipping", {
+  if ((llmResponse.confidence ?? 0) < 0.5) {
+    console.log("Not confident in the LLM translation, skipping", {
       detected_language_code: llmResponse.detected_language_code,
       translated_text: llmResponse.translated_text,
     });
     return text("", { status: 200 });
   }
 
-  // more than 2 char = undefined
-  if (
-    llmResponse.detected_language_code?.length &&
-    llmResponse.detected_language_code.length > 2
-  ) {
-    console.log("Invalid detected language code length", {
-      detected_language_code: llmResponse.detected_language_code,
-    });
-    return text("", { status: 200 });
-  }
-
   const translatedText = (llmResponse.translated_text ?? "").trim();
 
-  return text(
-    `[${llmResponse.detected_language_code}${
-      hasLowConfidence ? "?" : ""
-    }] ${translatedText}`,
-    { status: 200 }
-  );
+  if (saveToCache && translatedText.length > 0) {
+    // save to kv cache for next time
+    try {
+      await env.PVTCH_TRANSLATIONS.put(cacheKey, translatedText, {
+        expirationTtl: 60 * 60 * 24, // 24 hours
+      });
+      console.log("Saved translation to cache", { cacheKey, translatedText });
+    } catch (e) {
+      console.error("Failed to save translation to cache", {
+        cacheKey,
+        translatedText,
+        error: e,
+      });
+    }
+  }
+
+  return text(`[${llmResponse.detected_language_name}] ${translatedText}`, {
+    status: 200,
+  });
 };
