@@ -2,7 +2,7 @@ import { AutoRouter, withContent, cors, IRequest, json } from "itty-router";
 import { tokenLingoTranslate } from "@/routes/[token]/lingo/translate";
 import { tokenKvIdSet } from "@/routes/[token]/kv/[id]/set";
 import { tokenKvIdGet } from "@/routes/[token]/kv/[id]/get";
-import { tokenLingoToLanguage } from "@/routes/[token]/lingo/to/[language]";
+// import { tokenLingoToLanguage } from "@/routes/[token]/lingo/to/[language]";
 import { authStart } from "./routes/auth/start";
 import { authCallback } from "./routes/auth/callback";
 import { authRemove } from "./routes/auth/remove";
@@ -45,8 +45,8 @@ router.all<IRequest, [Env]>(
   tokenLingoTranslate
 );
 
-router.all<IRequest, [Env]>(
-  "/:token/lingo/to/:language",
-  withContent,
-  tokenLingoToLanguage
-);
+// router.all<IRequest, [Env]>(
+//   "/:token/lingo/to/:language",
+//   withContent,
+//   tokenLingoToLanguage
+// );
