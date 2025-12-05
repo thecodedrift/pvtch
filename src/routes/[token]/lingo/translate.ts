@@ -190,6 +190,10 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   if (guesses.length === 1 && guesses[0].accuracy === 1) {
     performTranslation = guesses[0].lang !== config.language;
     identifiedLanguage = guesses[0].lang;
+  } else if (guesses.length === 0) {
+    // no idea what language this is, try to translate
+    performTranslation = true;
+    saveToCache = true;
   } else {
     if (next.length < 16) {
       // below 16 characters, tinyld is less than 90% accurate
