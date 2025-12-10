@@ -1,4 +1,4 @@
-import { detectAll } from "tinyld";
+import { detectAll } from "tinyld/heavy";
 import { IRequest, RequestHandler, text } from "itty-router";
 import { LingoConfig, lingoConfigKey } from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
@@ -128,6 +128,11 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  if (next.toLowerCase().includes("imtyping")) {
+    console.log("Translation Skip", { user, next });
+    return text("", { status: 200 });
+  }
+
   const userid = await isValidToken(token, env);
 
   if (!userid) {
@@ -195,11 +200,12 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     performTranslation = true;
     saveToCache = true;
   } else {
-    if (next.length < 16) {
-      // below 16 characters, tinyld is less than 90% accurate
+    if (next.length < 13) {
+      // below 13 characters, tinyld is less than 80% accurate
       // try a kv call to see if this is a cached translation
+      // https://github.com/komodojp/tinyld/blob/develop/docs/benchmark.md
       const existing = await env.PVTCH_TRANSLATIONS.get(cacheKey);
-      if (existing) {
+      if (existing && existing !== "-") {
         console.log("Found cached translation, returning", {
           cacheKey,
           existing,
@@ -207,12 +213,30 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
         return text(existing, { status: 200 });
       }
 
+      if (existing === "-") {
+        // we've seen this before and it's not translatable
+        console.log("Found cached non-translatable message, returning", {
+          cacheKey,
+          existing,
+        });
+        return text("", { status: 200 });
+      }
+
+      // if we're here, we need to try to translate
+      const confidence = guesses[0]?.accuracy ?? 0;
+
       saveToCache = true;
-      performTranslation = true; // definitely try
+      performTranslation = confidence > 0.1; // if greater than 0.1% confidence, try to translate
+      identifiedLanguage = guesses[0]?.lang;
     } else {
+      // accuracy is between 80-90% for most languages in the 13-16 range
       // accuracy is between 90-95% for most languages in the 16-24 range
       // high accuracy on the detection +95% > 24 characters
-      performTranslation = guesses[0].lang !== config.language;
+
+      const confidence = guesses[0]?.accuracy ?? 0;
+
+      performTranslation =
+        guesses[0].lang !== config.language && confidence > 0.1;
       identifiedLanguage = guesses[0].lang;
     }
   }
@@ -239,7 +263,19 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  const systemPrompt = [
+    `Translate the user's text to "${config.language}" from what looks like "${
+      identifiedLanguage ?? "an unknown language"
+    }".`,
+    "Treat @usernames as literal names and preserve them.",
+    "Do not create line breaks.",
+    "Do not make up languages.",
+    `Identify the language's name and it's 2 letter ISO code.`,
+    `Return the confidence of the translation as a float between 0 and 1 with "1.0" meaning highly confident and "0.0" meaning very low confidence.`,
+  ].join(" ");
+
   console.log(`Planned translation: ${userInput}`);
+  console.log(`System prompt: ${systemPrompt}`);
 
   let llmResponse: LLamaTranslateResponse | undefined = undefined;
   try {
@@ -251,13 +287,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
             messages: [
               {
                 role: "system",
-                content: [
-                  `Translate the user's text to ${config.language}.`,
-                  "Treat @usernames as literal names and preserve them.",
-                  "Do not create line breaks.",
-                  `Identify the language's name and it's 2 letter ISO code.`,
-                  "Return the confidence of the translation as a float between 0 and 1.",
-                ].join(" "),
+                content: systemPrompt,
               },
               {
                 role: "user",
@@ -338,6 +368,25 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
       detected_language_code: llmResponse.detected_language_code,
       translated_text: llmResponse.translated_text,
     });
+
+    if (saveToCache) {
+      try {
+        await env.PVTCH_TRANSLATIONS.put(cacheKey, "-", {
+          expirationTtl: 60 * 60 * 18, // 18 hours (falls out before next stream)
+        });
+        console.log("Saved translation to cache", {
+          cacheKey,
+          translatedText: "-",
+        });
+      } catch (e) {
+        console.error("Failed to save translation to cache", {
+          cacheKey,
+          translatedText: "-",
+          error: e,
+        });
+      }
+    }
+
     return text("", { status: 200 });
   }
 
@@ -359,7 +408,10 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     }
   }
 
-  return text(`[${llmResponse.detected_language_name}] ${translatedText}`, {
-    status: 200,
-  });
+  return text(
+    `ImTyping [${llmResponse.detected_language_name}] ${translatedText}`,
+    {
+      status: 200,
+    }
+  );
 };
