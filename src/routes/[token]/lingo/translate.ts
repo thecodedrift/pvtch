@@ -347,7 +347,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     // save to kv cache for next time
     try {
       await env.PVTCH_TRANSLATIONS.put(cacheKey, translatedText, {
-        expirationTtl: 60 * 60 * 24, // 24 hours
+        expirationTtl: 60 * 60 * 18, // 18 hours (falls out before next stream)
       });
       console.log("Saved translation to cache", { cacheKey, translatedText });
     } catch (e) {
