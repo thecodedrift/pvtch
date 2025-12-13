@@ -37,6 +37,18 @@ const dropURLs = (str: string) =>
     .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
     .trim();
 
+const trimToLength = (str: string, maxLength: number) => {
+  const segmenter = new Intl.Segmenter("en-US", { granularity: "grapheme" });
+  const chunks = Array.from(segmenter.segment(str));
+  if (chunks.length <= maxLength) {
+    return str;
+  }
+  return chunks
+    .slice(0, maxLength)
+    .map((c) => c.segment)
+    .join("");
+};
+
 // cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
 // because we don't know the target language yet
 // do our best attempt to remove twitch emotes while preserving usernames
@@ -96,16 +108,16 @@ export const translate = async (text: string, options: TranslateOptions) => {
 
   try {
     const systemPrompt = [
-      `You are a helpful translation assistant, translating to ${options.targetLanguage}.`,
+      "You are a helpful translation assistant, translating to the user's requested language.",
       "Treat @usernames as literal names and preserve them.",
       "Ignore any kamojis, Twitch-style emotes, emoticons, or smiley faces in the text.",
-      "Return the full name of the language you detected for the user's text.",
-      `Return the full name of ${options.targetLanguage} as the target language.`,
       "Prefer natural translations over literal word-for-word translations.",
-      "If multiple source languages for the user's text may be suitable, prefer the more common language.",
-      "Return a translated_text without additional commentary.",
+      "When considering possible similar languages, prefer a more common language.",
+      "Return the full name of the language you detected for the user's text as detected_language.",
+      "Return the full name of the target language the user requested as target_language.",
+      "If you cannot detect any language, return the full name of the language as 'Unknown'.",
+      "Return the translation as translated_text without additional commentary.",
       "If the translated_text is already in the target language, return the original string.",
-      "If you cannot detect the language, return the full name of the language as 'Unknown'.",
     ].join(" ");
 
     const llmResponse: TranslationResponse = await pRetry(
@@ -120,7 +132,10 @@ export const translate = async (text: string, options: TranslateOptions) => {
               },
               {
                 role: "user",
-                content: input,
+                content: `Translate this text to "${trimToLength(
+                  options.targetLanguage,
+                  60
+                )}":\n\n${input}`,
               },
             ],
             response_format: {
