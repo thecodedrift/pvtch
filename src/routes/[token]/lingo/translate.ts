@@ -62,6 +62,11 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  if (!normalized.includes(" ")) {
+    console.log("Single word message, skipping", { user, normalized });
+    return text("", { status: 200 });
+  }
+
   const userid = await isValidToken(token, env);
 
   if (!userid) {
