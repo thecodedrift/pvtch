@@ -11,6 +11,7 @@ const fixtures = [
   // "Blad is blad",
   "galing na curlyg5Wow",
   "kumusta na tayo, @ohaiDrifty ? f0x64Marbie",
+  "I shouldn't be translated thecod67Lol",
   // "chelle! hai!",
 ] as const;
 type Inputs = (typeof fixtures)[number];
@@ -52,7 +53,11 @@ export const tokenLingoTest: RequestHandler<IRequest, [Env]> = async (
     Inputs,
     Record<
       keyof AiModels,
-      { translated_text: string; detected_language: string }
+      {
+        translated_text: string;
+        detected_language: string;
+        target_language: string;
+      }
     >
   >();
 
@@ -77,6 +82,7 @@ export const tokenLingoTest: RequestHandler<IRequest, [Env]> = async (
         current[model] = {
           translated_text: llmResponse?.translated_text || "",
           detected_language: llmResponse?.detected_language || "Unknown",
+          target_language: llmResponse?.target_language || "Unknown",
         };
       })();
       promises.push(p);
@@ -91,7 +97,7 @@ export const tokenLingoTest: RequestHandler<IRequest, [Env]> = async (
     for (const model of models) {
       const res = result[model];
       output.push(
-        `Model: ${model}\nDetected Language: ${res.detected_language}\nTranslation: ${res.translated_text}\n`
+        `Model: ${model}\nDetected Language: ${res.detected_language}\nTarget Language: ${res.target_language}\nTranslation: ${res.translated_text}\n`
       );
     }
     output.push("\n");

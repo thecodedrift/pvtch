@@ -3,7 +3,11 @@ import { LingoConfig, lingoConfigKey } from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
 import { isValidToken } from "@/kv/twitchData";
 import MurmurHash3 from "imurmurhash";
-import { normalizeString, translate } from "@/lib/translator";
+import {
+  normalizeString,
+  translate,
+  TranslationResponse,
+} from "@/lib/translator";
 
 const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
 
@@ -161,11 +165,18 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text(existing, { status: 200 });
   }
 
-  const llmResponse = await translate(normalized, {
-    targetLanguage: config.language,
-    model: CURRENT_MODEL,
-    env: env,
-  });
+  let llmResponse: TranslationResponse | undefined;
+
+  try {
+    llmResponse = await translate(normalized, {
+      targetLanguage: config.language,
+      model: CURRENT_MODEL,
+      env: env,
+    });
+  } catch (e) {
+    console.error("Lingo translate failed:", e);
+    return text("", { status: 200 });
+  }
 
   if (!llmResponse) {
     console.error("Lingo translate failed");
@@ -173,6 +184,25 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   }
 
   console.log("LLM Response:", { input: normalized, output: llmResponse });
+
+  const identical = (str1: string, str2: string) => {
+    return (
+      normalizeString(str1).toLowerCase().trim() ===
+      normalizeString(str2).toLowerCase().trim()
+    );
+  };
+
+  if (identical(llmResponse.translated_text, normalized)) {
+    console.log("Translation result is identical to input");
+    await saveToCache("-"); // cache no-translate result
+    return text("", { status: 200 });
+  }
+
+  if (identical(llmResponse.detected_language, llmResponse.target_language)) {
+    console.log("Detected language is the same as target language");
+    await saveToCache("-"); // cache no-translate result
+    return text("", { status: 200 });
+  }
 
   // did we translate into our own language by mistake?
   if (llmResponse.translated_text === normalized) {

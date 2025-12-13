@@ -3,6 +3,7 @@ import pRetry from "p-retry";
 export type TranslationResponse = {
   translated_text: string;
   detected_language: string;
+  target_language: string;
 };
 
 type LLamaLikeResponse = {
@@ -99,6 +100,7 @@ export const translate = async (text: string, options: TranslateOptions) => {
       "Treat @usernames as literal names and preserve them.",
       "Ignore any kamojis, Twitch-style emotes, emoticons, or smiley faces in the text.",
       "Return the full name of the language you detected for the user's text.",
+      `Return the full name of ${options.targetLanguage} as the target language.`,
       "Prefer natural translations over literal word-for-word translations.",
       "If multiple source languages for the user's text may be suitable, prefer the more common language.",
       "Return a translated_text without additional commentary.",
@@ -132,8 +134,15 @@ export const translate = async (text: string, options: TranslateOptions) => {
                   detected_language: {
                     type: "string",
                   },
+                  target_language: {
+                    type: "string",
+                  },
                 },
-                required: ["translated_text", "detected_language"],
+                required: [
+                  "translated_text",
+                  "detected_language",
+                  "target_language",
+                ],
               },
             },
           }
