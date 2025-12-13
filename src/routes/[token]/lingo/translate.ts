@@ -3,7 +3,7 @@ import { LingoConfig, lingoConfigKey } from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
 import { isValidToken } from "@/kv/twitchData";
 import MurmurHash3 from "imurmurhash";
-import { translate } from "@/lib/translator";
+import { normalizeString, translate } from "@/lib/translator";
 
 const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
 
@@ -23,61 +23,6 @@ const ALWAYS_IGNORED_USERS = [
   "fossabot",
   "twitch",
 ].map((v) => v.toLowerCase());
-
-// strips URLs from the input string
-const dropURLs = (str: string) =>
-  str
-    .trim()
-    .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
-    .trim();
-
-// cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
-// because we don't know the target language yet
-// do our best attempt to remove twitch emotes while preserving usernames
-const removeTwitchEmotes = (str: string) => {
-  const segmenter = new Intl.Segmenter("en-US", { granularity: "word" });
-  const chunks = Array.from(segmenter.segment(str));
-  let usernameFlag = false;
-  const output: string[] = [];
-
-  // walk through the segments. If we hit an @, then turn on the "username" flag
-  // if we hit a word segment and the flag is set, continue
-  // remove any twich emotes we know of, replace result
-  // return the username flag to off
-  for (const chunk of chunks) {
-    if (chunk.segment === "@") {
-      usernameFlag = true;
-      output.push(chunk.segment);
-      continue;
-    }
-
-    if (usernameFlag && chunk.isWordLike) {
-      output.push(chunk.segment);
-      usernameFlag = false;
-      continue;
-    }
-
-    if (!chunk.isWordLike) {
-      output.push(chunk.segment);
-      continue;
-    }
-
-    output.push(
-      chunk.segment.replace(/[a-zA-Z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+/g, "")
-    );
-  }
-
-  return output.join("");
-};
-
-const normalizeString = (str: string) => {
-  const operations = [dropURLs, removeTwitchEmotes];
-  let next = str;
-  for (const op of operations) {
-    next = op(next);
-  }
-  return next.trim();
-};
 
 export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   request,
@@ -195,6 +140,21 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
       });
     }
   };
+
+  const existing = await env.PVTCH_TRANSLATIONS.get(cacheKey);
+  if (existing) {
+    console.log("Found translation in cache", {
+      cacheKey,
+      translatedText: existing,
+    });
+
+    if (existing === "-") {
+      // cached no-translate result
+      return text("", { status: 200 });
+    }
+
+    return text(existing, { status: 200 });
+  }
 
   const llmResponse = await translate(normalized, {
     targetLanguage: config.language,
