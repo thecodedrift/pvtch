@@ -6,6 +6,7 @@ import { tokenKvIdGet } from "@/routes/[token]/kv/[id]/get";
 import { authStart } from "./routes/auth/start";
 import { authCallback } from "./routes/auth/callback";
 import { authRemove } from "./routes/auth/remove";
+import { tokenLingoTest } from "./routes/[token]/lingo/test";
 
 // get preflight and corsify pair
 const { preflight, corsify } = cors();
@@ -44,6 +45,8 @@ router.all<IRequest, [Env]>(
   withContent,
   tokenLingoTranslate
 );
+
+router.all<IRequest, [Env]>("/:token/lingo/test", withContent, tokenLingoTest);
 
 // router.all<IRequest, [Env]>(
 //   "/:token/lingo/to/:language",

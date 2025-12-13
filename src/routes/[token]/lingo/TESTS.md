@@ -1,34 +1,32 @@
-input: @curlygirlbabs ノ( ゜-゜ノ)
-output: [none]
-note: Shouldn't translate, because there is no meaningful text.
+@curlygirlbabs ノ( ゜-゜ノ)
+""
+(despite having ja characters, this is just a kamoji and a username - skip)
 
-input: jag vet inte
-output: [sv] I don't know
+jag vet inte
+ImTyping [Swedish] I don't know
 
-input: Cheer42 здравствуйте товарищи
-output: [ru] Hello comrades
-notes: Should drop the Cheer42 which is a Twitch emote.
+Cheer42 здравствуйте товарищи
+ImTyping [Russian] Hello comrades
+(cheer removed)
 
-input: 내 황홀에 취해, you can't look away
-output: [ko?] Intoxicated by my ecstasy, you can't look away
-notes: Mixed language input, should try to translate, may not be confident
+내 황홀에 취해, you can't look away
+ImTyping [Korean] Intoxicated by my ecstasy, you can't look away
 
-input: hej
-output: [sv] hi
-notes: Short string test. May not be sv, but any other language w/ "hej"
+hej
+ImTyping [Swedish] hello
 
-input: Soy fría thecod67Lost
-output: [es] I am cold thecod67Lost
-notes: Leaves the twitch emote. Removing them is too problematic
+Soy fría thecod67Lost
+ImTyping [Spanish] I am cold
 
-input: Blad is blad
-output: [none]
-notes: Highest score is target language, even if below confidence threshold
+Blad is blad
+ImTyping [Dutch] Blad is blad
 
-input: galing na curlyg5Wow
-output: good morning
-notes: Need to drop twitch emotes
+galing na curlyg5Wow
+ImTyping [Tagalog] very good
 
-input: kumusta na tayo, @ohaiDrifty ? f0x64Marbie
-output: kumusta na tayo, @ohaiDrifty ?
-notes: Should preserve the username which looks like a twitch emote
+kumusta na tayo, @ohaiDrifty ? f0x64Marbie
+ImTyping [Tagalog] how are we, @ohaiDrifty ?
+
+chelle! hai!
+ImTyping [Italian] Hello! Yes!
+(also inaccurate in google translate detect)

@@ -1,17 +1,14 @@
-import { detectAll } from "tinyld/heavy";
 import { IRequest, RequestHandler, text } from "itty-router";
 import { LingoConfig, lingoConfigKey } from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
 import { isValidToken } from "@/kv/twitchData";
-import pRetry from "p-retry";
 import MurmurHash3 from "imurmurhash";
+import { translate } from "@/lib/translator";
 
-type LLamaTranslateResponse = {
-  translated_text?: string;
-  detected_language_code?: string;
-  detected_language_name?: string;
-  confidence?: number;
-};
+const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
+
+// qwen 30b isn't in cf types but is supported
+const CURRENT_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8" as keyof AiModels;
 
 const ALWAYS_IGNORED_USERS = [
   "streamelements",
@@ -27,15 +24,16 @@ const ALWAYS_IGNORED_USERS = [
   "twitch",
 ].map((v) => v.toLowerCase());
 
-const normalizeString = (str: string) =>
+// strips URLs from the input string
+const dropURLs = (str: string) =>
   str
     .trim()
-    .replace(/^!.*/g, "") // commands
     .replace(/(^|\W)https?:\/\/\S+/gi, "") // links
     .trim();
 
 // cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
 // because we don't know the target language yet
+// do our best attempt to remove twitch emotes while preserving usernames
 const removeTwitchEmotes = (str: string) => {
   const segmenter = new Intl.Segmenter("en-US", { granularity: "word" });
   const chunks = Array.from(segmenter.segment(str));
@@ -65,43 +63,22 @@ const removeTwitchEmotes = (str: string) => {
     }
 
     output.push(
-      chunk.segment.replace(/[a-z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+/g, "")
+      chunk.segment.replace(/[a-zA-Z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+/g, "")
     );
   }
 
   return output.join("");
 };
 
-/**
- * Filtering information:
- * 1. Remove command prefixed values starting with !
- * 2. Remove usernames
- * 3. Remove twitch emotes (best attempt)
- * 4. Trim and check length
- *
- * test strings:
- * - hello thecod67Heart how is everyone? UwU \@curlygirlbabs
- * - Yo fui a la store to buy las uvas LUL
- * - 내 황홀에 취해, you can't look away soltLaugh
- * - yo soy :3 thecod67Coffee
- *
- * Then if we still have a message, make a KV fetch for config.
- * This ensures we're only doing language detection and AI calls when needed
- * and aren't including the user's bots or other ignored users.
- *
- * 1. Abort if it's an ignored user
- *
- * At this point, we think we **should** translate, so use eld and see what language it is.
- *
- * 1. If there is no good scoring languages (over the threshold) abort
- * 2. If the only good scoring language is the target language, abort
- *
- * We can now attempt a translation.
- *
- * 1. Strip emoticons and smileys from the text, as they interfere with llama's understanding
- * 2. Call AI with system prompt to translate to target language, ignoring twitch emojis
- * 3. Return translated text with detected language code prefix
- */
+const normalizeString = (str: string) => {
+  const operations = [dropURLs, removeTwitchEmotes];
+  let next = str;
+  for (const op of operations) {
+    next = op(next);
+  }
+  return next.trim();
+};
+
 export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   request,
   env
@@ -109,7 +86,9 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   const { token } = request.params as { token: string };
   const value: string = [
     request.content?.message ?? request.query?.message ?? "",
-  ].flat()[0];
+  ]
+    .flat()[0]
+    .trim();
   const user: string = [request.content?.user ?? request.query?.user ?? ""]
     .flat()[0]
     .trim();
@@ -120,16 +99,21 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
-  const next = normalizeString(value);
-  console.log("incoming lingo translate:", { user, next });
-
-  if (next.length === 0 || user.length === 0) {
-    console.log("Skipped, no message or user", { user, next });
+  if (value.startsWith("!")) {
+    console.log("Command detected, skipping translation", { user, value });
     return text("", { status: 200 });
   }
 
-  if (next.toLowerCase().includes("imtyping")) {
-    console.log("Translation Skip", { user, next });
+  const normalized = normalizeString(value);
+  console.log("incoming lingo translate:", { user, normalized });
+
+  if (normalized.length === 0 || user.length === 0) {
+    console.log("Skipped, no message or user", { user, normalized });
+    return text("", { status: 200 });
+  }
+
+  if (normalized.toLowerCase().includes("imtyping")) {
+    console.log("Translation Skip: imtyping", { user, normalized });
     return text("", { status: 200 });
   }
 
@@ -140,17 +124,17 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  // fetch kv as late as possible to avoid wasted work
   const kvName = normalizeKey(token, lingoConfigKey);
   const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(kvName);
   const stub = env.PVTCH_BACKEND.get(cdo);
   const kvConfigString = await stub.get();
 
-  let kvConfig: Partial<LingoConfig> | null = null;
+  let kvConfig: Partial<LingoConfig> | undefined;
   try {
-    kvConfig = kvConfigString ? JSON.parse(kvConfigString) : null;
+    kvConfig = kvConfigString ? JSON.parse(kvConfigString) : undefined;
   } catch (e) {
     console.error("failed to parse lingo config:", e);
-    kvConfig = null;
   }
 
   if (!kvConfig) {
@@ -174,244 +158,78 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
 
   if (config.bots.includes(user.toLowerCase())) {
     // dont reply to ignored bots / users
-    console.log("User is in ignored bots list", { user, next });
+    console.log("User is in ignored bots list", { user, normalized });
     return text("", { status: 200 });
   }
 
-  let performTranslation = true;
-  let saveToCache = false;
+  // gartic and other guessing games are single word posts, skip those
+  // if (!normalized.includes(" ")) {
+  //   console.log("Single word message, skipping", { user, normalized });
+  //   return text("", { status: 200 });
+  // }
+
   const cacheKey = new MurmurHash3(
-    next.toLowerCase().replaceAll(/\s+/g, " ").trim()
+    normalized.toLowerCase() + "|" + config.language + "|" + CURRENT_MODEL
   )
     .result()
     .toString(16);
-  const guesses = detectAll(next).sort((a, b) => b.accuracy - a.accuracy);
-  let identifiedLanguage: string | undefined = undefined;
 
-  console.log("TinyLD language guesses:", next, { guesses });
-  console.log("Cache key for message:", { next, cacheKey });
-
-  // optimizations: Try to avoid translation calls if possible
-  if (guesses.length === 1 && guesses[0].accuracy === 1) {
-    performTranslation = guesses[0].lang !== config.language;
-    identifiedLanguage = guesses[0].lang;
-  } else if (guesses.length === 0) {
-    // no idea what language this is, try to translate
-    performTranslation = true;
-    saveToCache = true;
-  } else {
-    if (next.length < 13) {
-      // below 13 characters, tinyld is less than 80% accurate
-      // try a kv call to see if this is a cached translation
-      // https://github.com/komodojp/tinyld/blob/develop/docs/benchmark.md
-      const existing = await env.PVTCH_TRANSLATIONS.get(cacheKey);
-      if (existing && existing !== "-") {
-        console.log("Found cached translation, returning", {
-          cacheKey,
-          existing,
-        });
-        return text(existing, { status: 200 });
-      }
-
-      if (existing === "-") {
-        // we've seen this before and it's not translatable
-        console.log("Found cached non-translatable message, returning", {
-          cacheKey,
-          existing,
-        });
-        return text("", { status: 200 });
-      }
-
-      // if we're here, we need to try to translate
-      const confidence = guesses[0]?.accuracy ?? 0;
-
-      saveToCache = true;
-      performTranslation = confidence > 0.1; // if greater than 0.1% confidence, try to translate
-      identifiedLanguage = guesses[0]?.lang;
-    } else {
-      // accuracy is between 80-90% for most languages in the 13-16 range
-      // accuracy is between 90-95% for most languages in the 16-24 range
-      // high accuracy on the detection +95% > 24 characters
-
-      const confidence = guesses[0]?.accuracy ?? 0;
-
-      performTranslation =
-        guesses[0].lang !== config.language && confidence > 0.1;
-      identifiedLanguage = guesses[0].lang;
-    }
-  }
-
-  // early abort if we think translation is not needed
-  if (!performTranslation) {
-    console.log("TinyLD indicates no translation needed", {
-      identifiedLanguage,
-      targetLanguage: config.language,
-      guesses,
-    });
-    return text("", { status: 200 });
-  }
-
-  // Llama is okay at twitch emojis, but we want to strip emoticons and smileys from the text
-  const userInput = removeTwitchEmotes(next).trim();
-
-  if (userInput.length === 0) {
-    console.log("No meaningful text after removing twitch emotes", {
-      user,
-      next,
-      userInput,
-    });
-    return text("", { status: 200 });
-  }
-
-  const systemPrompt = [
-    `Translate the user's text to "${config.language}" from what looks like "${
-      identifiedLanguage ?? "an unknown language"
-    }".`,
-    "Treat @usernames as literal names and preserve them.",
-    "Do not create line breaks.",
-    "Do not make up languages.",
-    `Identify the language's name and it's 2 letter ISO code.`,
-    `Return the confidence of the translation as a float between 0 and 1 with "1.0" meaning highly confident and "0.0" meaning very low confidence.`,
-  ].join(" ");
-
-  console.log(`Planned translation: ${userInput}`);
-  console.log(`System prompt: ${systemPrompt}`);
-
-  let llmResponse: LLamaTranslateResponse | undefined = undefined;
-  try {
-    llmResponse = await pRetry(
-      async () => {
-        const response = (await env.AI.run(
-          "@cf/meta/llama-4-scout-17b-16e-instruct",
-          {
-            messages: [
-              {
-                role: "system",
-                content: systemPrompt,
-              },
-              {
-                role: "user",
-                content: userInput,
-              },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                type: "object",
-                properties: {
-                  translated_text: {
-                    type: "string",
-                  },
-                  detected_language_code: {
-                    type: "string",
-                  },
-                  detected_language_name: {
-                    type: "string",
-                  },
-                  confidence: {
-                    type: "number",
-                  },
-                },
-                required: [
-                  "translated_text",
-                  "detected_language_code",
-                  "detected_language_name",
-                  "confidence",
-                ],
-              },
-            },
-          }
-        )) as {
-          response?: LLamaTranslateResponse;
-        };
-
-        // safeguard against missing fields
-        if (
-          response.response?.translated_text === undefined ||
-          response.response?.detected_language_code === undefined ||
-          response.response?.detected_language_name === undefined ||
-          response.response?.confidence === undefined
-        ) {
-          throw new Error(
-            "Lingo translate missing fields:" +
-              JSON.stringify({
-                response: response?.response,
-              })
-          );
-        }
-
-        return response.response;
-      },
-      {
-        retries: 3,
-      }
-    );
-  } catch (e) {
-    console.error("Lingo translate failed after retries:", e);
-    return text("", { status: 200 });
-  }
-
-  console.log("LLM Response:", { input: userInput, llmResponse });
-
-  // did we translate into our own language by mistake?
-  if (llmResponse.detected_language_code === config.language) {
-    console.log("Detected language is target language, skipping", {
-      detected_language_code: llmResponse.detected_language_code,
-      target_language: config.language,
-    });
-    return text("", { status: 200 });
-  }
-
-  // not a meaningful translation (unicode symbols like a flip)
-  if ((llmResponse.confidence ?? 0) < 0.5) {
-    console.log("Not confident in the LLM translation, skipping", {
-      detected_language_code: llmResponse.detected_language_code,
-      translated_text: llmResponse.translated_text,
-    });
-
-    if (saveToCache) {
-      try {
-        await env.PVTCH_TRANSLATIONS.put(cacheKey, "-", {
-          expirationTtl: 60 * 60 * 18, // 18 hours (falls out before next stream)
-        });
-        console.log("Saved translation to cache", {
-          cacheKey,
-          translatedText: "-",
-        });
-      } catch (e) {
-        console.error("Failed to save translation to cache", {
-          cacheKey,
-          translatedText: "-",
-          error: e,
-        });
-      }
+  const saveToCache = async (value: string) => {
+    if (env.DISABLE_CACHE) {
+      return;
     }
 
-    return text("", { status: 200 });
-  }
-
-  const translatedText = (llmResponse.translated_text ?? "").trim();
-
-  if (saveToCache && translatedText.length > 0) {
-    // save to kv cache for next time
     try {
-      await env.PVTCH_TRANSLATIONS.put(cacheKey, translatedText, {
-        expirationTtl: 60 * 60 * 18, // 18 hours (falls out before next stream)
+      await env.PVTCH_TRANSLATIONS.put(cacheKey, value, {
+        expirationTtl: CACHE_TIME,
       });
-      console.log("Saved translation to cache", { cacheKey, translatedText });
+      console.log("Saved translation to cache", {
+        cacheKey,
+        translatedText: value,
+      });
     } catch (e) {
       console.error("Failed to save translation to cache", {
         cacheKey,
-        translatedText,
+        translatedText: value,
         error: e,
       });
     }
+  };
+
+  const llmResponse = await translate(normalized, {
+    targetLanguage: config.language,
+    model: CURRENT_MODEL,
+    env: env,
+  });
+
+  if (!llmResponse) {
+    console.error("Lingo translate failed");
+    return text("", { status: 200 });
   }
 
-  return text(
-    `ImTyping [${llmResponse.detected_language_name}] ${translatedText}`,
-    {
-      status: 200,
-    }
-  );
+  console.log("LLM Response:", { input: normalized, output: llmResponse });
+
+  // did we translate into our own language by mistake?
+  if (llmResponse.translated_text === normalized) {
+    await saveToCache("-"); // cache no-translate result
+    return text("", { status: 200 });
+  }
+
+  if (
+    llmResponse.translated_text
+      .replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, "$1")
+      .trim() === ""
+  ) {
+    console.log("Translation result is empty after removing usernames");
+    await saveToCache("-"); // cache no-translate result
+    return text("", { status: 200 });
+  }
+
+  const output = `ImTyping [${llmResponse.detected_language}] ${llmResponse.translated_text}`;
+
+  await saveToCache(output);
+
+  return text(output, {
+    status: 200,
+  });
 };
