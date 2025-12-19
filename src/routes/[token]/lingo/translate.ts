@@ -61,7 +61,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
-  if (normalized.toLowerCase().includes("imtyping")) {
+  if (value.toLowerCase().includes("imtyping")) {
     console.log("Translation Skip: imtyping", { user, normalized });
     return text("", { status: 200 });
   }
