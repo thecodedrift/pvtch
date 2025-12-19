@@ -205,6 +205,12 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   }
 
   // did we translate into our own language by mistake?
+  if (identical(llmResponse.detected_language, "unknown")) {
+    await saveToCache("-"); // cache no-translate result
+    return text("", { status: 200 });
+  }
+
+  // did we translate into our own language by mistake?
   if (llmResponse.translated_text === normalized) {
     await saveToCache("-"); // cache no-translate result
     return text("", { status: 200 });
