@@ -116,6 +116,8 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
     return text("", { status: 200 });
   }
 
+  console.log("Lingo translate config:", config);
+
   // gartic and other guessing games are single word posts, skip those
   // if (!normalized.includes(" ")) {
   //   console.log("Single word message, skipping", { user, normalized });
