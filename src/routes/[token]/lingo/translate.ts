@@ -1,13 +1,13 @@
 import { IRequest, RequestHandler, text } from "itty-router";
-import { LingoConfig, lingoConfigKey } from "../../../kv/lingoConfig";
 import { normalizeKey } from "@/fn/normalizeKey";
-import { isValidToken } from "@/kv/twitchData";
+import { isValidToken } from "@/lib/twitchData";
 import MurmurHash3 from "imurmurhash";
 import {
   normalizeString,
   translate,
   TranslationResponse,
 } from "@/lib/translator";
+import { LINGO_KEY, LingoConfig } from "./_constants";
 
 const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
 
@@ -79,7 +79,7 @@ export const tokenLingoTranslate: RequestHandler<IRequest, [Env]> = async (
   }
 
   // fetch kv as late as possible to avoid wasted work
-  const kvName = normalizeKey(token, lingoConfigKey);
+  const kvName = normalizeKey(token, LINGO_KEY);
   const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(kvName);
   const stub = env.PVTCH_BACKEND.get(cdo);
   const kvConfigString = await stub.get();

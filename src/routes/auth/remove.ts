@@ -4,7 +4,7 @@ import {
   tokenDataKeyPrefix,
   twitchDataKeyPrefix,
   TwitchUserData,
-} from "@/kv/twitchData";
+} from "@/lib/twitchData";
 
 export const authRemove: RequestHandler<IRequest, [Env]> = async (
   request,

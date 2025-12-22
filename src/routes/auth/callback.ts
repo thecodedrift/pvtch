@@ -4,7 +4,7 @@ import {
   tokenDataKeyPrefix,
   twitchDataKeyPrefix,
   TwitchUserData,
-} from "@/kv/twitchData";
+} from "@/lib/twitchData";
 import { createToken } from "@/fn/createToken";
 import { parse as pslParse } from "psl";
 
