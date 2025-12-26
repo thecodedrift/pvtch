@@ -26,7 +26,7 @@ export const TwitchLogin = () => {
     const loginUrl = new URL(
       currentUrl.hostname === 'localhost'
         ? 'http://localhost:5173'
-        : 'https://api.pvtch.com'
+        : 'https://www.pvtch.com'
     );
     loginUrl.pathname = '/auth/start';
     setLoginUrl(loginUrl);

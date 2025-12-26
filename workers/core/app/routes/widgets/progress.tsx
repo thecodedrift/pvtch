@@ -21,7 +21,7 @@ function parseCookies(cookieHeader: string | null): Record<string, string> {
     cookieHeader.split(';').map((c) => {
       const [key, ...val] = c.trim().split('=');
       return [key, val.join('=')];
-    }),
+    })
   );
 }
 
@@ -111,7 +111,10 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = cookies['pvtch_token'];
 
   if (!token) {
-    return data({ success: false, error: 'Not authenticated' }, { status: 401 });
+    return data(
+      { success: false, error: 'Not authenticated' },
+      { status: 401 }
+    );
   }
 
   const userid = await isValidToken(token, env);
@@ -120,7 +123,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   const formData = await request.formData();
-  const id = formData.get('id') as string ?? 'default';
+  const id = (formData.get('id') as string) ?? 'default';
   const configKey = `progress-${id}-config`;
   const configValue = formData.get('config') as string;
 
@@ -180,10 +183,11 @@ export default function WidgetsProgress() {
   }
 
   // Generate URLs for display
-  const progressUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/sources/progress/${loaderData.token}/${currentId}`
-    : '';
-  const updateUrl = `https://api.pvtch.com/progress/${loaderData.token}/${currentId}/set?value=UPDATEME`;
+  const progressUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/sources/progress/${loaderData.token}/${currentId}`
+      : '';
+  const updateUrl = `https://www.pvtch.com/progress/${loaderData.token}/${currentId}/set?value=UPDATEME`;
 
   return (
     <div>
@@ -240,7 +244,11 @@ export default function WidgetsProgress() {
               >
                 Switch
               </Button>
-              <Button variant="action" type="submit" disabled={fetcher.state !== 'idle'}>
+              <Button
+                variant="action"
+                type="submit"
+                disabled={fetcher.state !== 'idle'}
+              >
                 {fetcher.state !== 'idle' ? 'Saving...' : 'Save'}
               </Button>
             </>
@@ -268,7 +276,7 @@ export default function WidgetsProgress() {
         <div
           className={cn(
             'flex flex-col gap-6 pt-4',
-            changingId ? 'pointer-events-none opacity-50' : '',
+            changingId ? 'pointer-events-none opacity-50' : ''
           )}
         >
           <form.Field
@@ -329,8 +337,8 @@ export default function WidgetsProgress() {
                   readOnly={changingId}
                 />
                 <FieldDescription>
-                  The second color for the completed bar, make it slightly brighter for a
-                  cool gradient effect
+                  The second color for the completed bar, make it slightly
+                  brighter for a cool gradient effect
                 </FieldDescription>
               </Field>
             )}
@@ -347,10 +355,14 @@ export default function WidgetsProgress() {
                   name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) =>
+                    field.handleChange(parseInt(e.target.value, 10) || 0)
+                  }
                   readOnly={changingId}
                 />
-                <FieldDescription>Your arbitrary goal amount. You got this!</FieldDescription>
+                <FieldDescription>
+                  Your arbitrary goal amount. You got this!
+                </FieldDescription>
               </Field>
             )}
           />
@@ -391,7 +403,8 @@ export default function WidgetsProgress() {
                   readOnly={changingId}
                 />
                 <FieldDescription>
-                  Add a prefix before Progress and Goal numbers, e.g. "$" or "Level "
+                  Add a prefix before Progress and Goal numbers, e.g. "$" or
+                  "Level "
                 </FieldDescription>
               </Field>
             )}
@@ -408,12 +421,14 @@ export default function WidgetsProgress() {
                   name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) =>
+                    field.handleChange(parseInt(e.target.value, 10) || 0)
+                  }
                   readOnly={changingId}
                 />
                 <FieldDescription>
-                  Round the progress number to this many decimal places, great if you're
-                  doing a bunch of math in your bot
+                  Round the progress number to this many decimal places, great
+                  if you're doing a bunch of math in your bot
                 </FieldDescription>
               </Field>
             )}

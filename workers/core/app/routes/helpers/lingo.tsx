@@ -19,7 +19,7 @@ function parseCookies(cookieHeader: string | null): Record<string, string> {
     cookieHeader.split(';').map((c) => {
       const [key, ...val] = c.trim().split('=');
       return [key, val.join('=')];
-    }),
+    })
   );
 }
 
@@ -107,7 +107,10 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = cookies['pvtch_token'];
 
   if (!token) {
-    return data({ success: false, error: 'Not authenticated' }, { status: 401 });
+    return data(
+      { success: false, error: 'Not authenticated' },
+      { status: 401 }
+    );
   }
 
   const userid = await isValidToken(token, env);
@@ -117,8 +120,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const configKey = 'lingo-config';
-  const botsRaw = formData.get('bots') as string ?? '';
-  const languageRaw = formData.get('language') as string ?? 'en';
+  const botsRaw = (formData.get('bots') as string) ?? '';
+  const languageRaw = (formData.get('language') as string) ?? 'en';
 
   // Process bots list
   const bots = botsRaw
@@ -191,8 +194,8 @@ export default function HelpersLingo() {
   }
 
   // Generate URLs for display
-  const translateAllUrl = `https://api.pvtch.com/${loaderData.token}/lingo/translate?user=SENDINGUSER&message=MESSAGEHERE`;
-  const translateTargetUrl = `https://api.pvtch.com/${loaderData.token}/lingo/to/XX?user=SENDINGUSER&message=MESSAGEHERE`;
+  const translateAllUrl = `https://www.pvtch.com/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`;
+  const translateTargetUrl = `https://www.pvtch.com/lingo/to/XX/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`;
 
   return (
     <div>
@@ -224,8 +227,9 @@ export default function HelpersLingo() {
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 <FieldDescription>
-                  Any bots or users you want to ignore. Messages from these users will
-                  never be translated. Separate names with commas. (max 15)
+                  Any bots or users you want to ignore. Messages from these
+                  users will never be translated. Separate names with commas.
+                  (max 15)
                 </FieldDescription>
               </Field>
             )}
@@ -245,15 +249,19 @@ export default function HelpersLingo() {
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
                 <FieldDescription>
-                  A two-letter language code (like "en" for English, "es" for Spanish,
-                  etc) or the full name of the language you speak. This is what you'll
-                  get replies in.
+                  A two-letter language code (like "en" for English, "es" for
+                  Spanish, etc) or the full name of the language you speak. This
+                  is what you'll get replies in.
                 </FieldDescription>
               </Field>
             )}
           />
           <div className="flex flex-row items-center justify-end">
-            <Button variant="action" type="submit" disabled={fetcher.state !== 'idle'}>
+            <Button
+              variant="action"
+              type="submit"
+              disabled={fetcher.state !== 'idle'}
+            >
               {fetcher.state !== 'idle' ? 'Saving...' : 'Save'}
             </Button>
           </div>
@@ -265,14 +273,17 @@ export default function HelpersLingo() {
         <div>
           <h3 className="font-semibold mb-2">Translate All URL</h3>
           <p className="text-sm text-muted-foreground mb-2">
-            Translates a message to your configured language (only if it's in a different language)
+            Translates a message to your configured language (only if it's in a
+            different language)
           </p>
           <code className="block p-2 bg-muted rounded text-sm break-all">
             {translateAllUrl}
           </code>
         </div>
         <div>
-          <h3 className="font-semibold mb-2">Translate to Specific Language URL</h3>
+          <h3 className="font-semibold mb-2">
+            Translate to Specific Language URL
+          </h3>
           <p className="text-sm text-muted-foreground mb-2">
             Replace XX with a language code (like "es", "fr", "de")
           </p>
