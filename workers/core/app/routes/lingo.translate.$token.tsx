@@ -47,12 +47,18 @@ async function handleTranslate(
 
   // skip always ignored users
   if (ALWAYS_IGNORED_USERS.has(userTrimmed.toLowerCase())) {
-    console.log('User is in always ignored bots list', { user: userTrimmed, value });
+    console.log('User is in always ignored bots list', {
+      user: userTrimmed,
+      value,
+    });
     return new Response('', { status: 200 });
   }
 
   if (value.startsWith('!')) {
-    console.log('Command detected, skipping translation', { user: userTrimmed, value });
+    console.log('Command detected, skipping translation', {
+      user: userTrimmed,
+      value,
+    });
     return new Response('', { status: 200 });
   }
 
@@ -60,17 +66,34 @@ async function handleTranslate(
   console.log('incoming lingo translate:', { user: userTrimmed, normalized });
 
   if (normalized.length === 0 || userTrimmed.length === 0) {
-    console.log('Skipped, no message or user', { user: userTrimmed, normalized });
+    console.log('Skipped, no message or user', {
+      user: userTrimmed,
+      normalized,
+    });
     return new Response('', { status: 200 });
   }
 
   if (value.toLowerCase().includes('imtyping')) {
-    console.log('Translation Skip: imtyping', { user: userTrimmed, normalized });
+    console.log('Translation Skip: imtyping', {
+      user: userTrimmed,
+      normalized,
+    });
+    return new Response('', { status: 200 });
+  }
+
+  if (value.toLowerCase().includes('megaphonez')) {
+    console.log('Translation Skip: megaphonez', {
+      user: userTrimmed,
+      normalized,
+    });
     return new Response('', { status: 200 });
   }
 
   if (!normalized.includes(' ')) {
-    console.log('Single word message, skipping', { user: userTrimmed, normalized });
+    console.log('Single word message, skipping', {
+      user: userTrimmed,
+      normalized,
+    });
     return new Response('', { status: 200 });
   }
 
@@ -109,15 +132,18 @@ async function handleTranslate(
   }
 
   const config: LingoConfig = {
-    bots: ([...(kvConfig?.bots ?? [])].filter((v) => v !== undefined)).map(
-      (v) => v.toLowerCase()
-    ),
+    bots: [...(kvConfig?.bots ?? [])]
+      .filter((v) => v !== undefined)
+      .map((v) => v.toLowerCase()),
     language: kvConfig?.language ?? 'en',
   };
 
   if (config.bots.includes(userTrimmed.toLowerCase())) {
     // dont reply to ignored bots / users
-    console.log('User is in ignored bots list', { user: userTrimmed, normalized });
+    console.log('User is in ignored bots list', {
+      user: userTrimmed,
+      normalized,
+    });
     return new Response('', { status: 200 });
   }
 
@@ -253,7 +279,9 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const { token } = params;
 
-  const content = (await request.json().catch(() => ({}))) as TranslateRequestContent | undefined;
+  const content = (await request.json().catch(() => ({}))) as
+    | TranslateRequestContent
+    | undefined;
   const message = String(content?.message ?? '');
   const user = String(content?.user ?? '');
 

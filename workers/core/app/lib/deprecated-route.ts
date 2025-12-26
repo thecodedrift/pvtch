@@ -25,7 +25,7 @@ export async function handleDeprecatedRoute(
 
   // Return 410 with helpful message
   return new Response(
-    'This URL is no longer in use, see updates on pvtch.com',
+    'MegaphoneZ This URL is no longer in use, see updates on pvtch.com',
     {
       status: 410,
       headers: { 'Content-Type': 'text/plain' },
