@@ -62,8 +62,18 @@ const parseConfig = (configString?: string): ProgressConfig => {
 
 export function meta(_args: Route.MetaArgs) {
   return [
-    { title: 'Progress Bar - PVTCH' },
-    { name: 'description', content: 'Configure your OBS progress bar' },
+    { title: 'Progress Bar Widget for OBS & Twitch Streams - PVTCH' },
+    {
+      name: 'description',
+      content:
+        'Create customizable progress bars for your Twitch stream. Track sub goals, donations, or any metric with real-time OBS browser source overlays. Free and open source.',
+    },
+    { property: 'og:title', content: 'Progress Bar Widget for OBS & Twitch Streams' },
+    {
+      property: 'og:description',
+      content:
+        'Create customizable progress bars for your Twitch stream. Track sub goals, donations, or any metric with real-time OBS overlays.',
+    },
   ];
 }
 
@@ -438,18 +448,14 @@ export default function WidgetsProgress() {
 
       {/* URLs Section */}
       <div className="mt-8 space-y-4">
-        <div>
-          <h3 className="font-semibold mb-2">OBS Browser Source URL</h3>
-          <code className="block p-2 bg-muted rounded text-sm break-all">
-            {progressUrl}
-          </code>
-        </div>
-        <div>
-          <h3 className="font-semibold mb-2">Update API URL</h3>
-          <code className="block p-2 bg-muted rounded text-sm break-all">
-            {updateUrl}
-          </code>
-        </div>
+        <Field>
+          <FieldLabel>OBS Browser Source URL</FieldLabel>
+          <Input type="password" readOnly value={progressUrl} />
+        </Field>
+        <Field>
+          <FieldLabel>Update API URL</FieldLabel>
+          <Input type="password" readOnly value={updateUrl} />
+        </Field>
       </div>
     </div>
   );

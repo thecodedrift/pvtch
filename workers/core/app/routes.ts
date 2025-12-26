@@ -13,6 +13,7 @@ export default [
   layout('./components/layout/app-layout.tsx', [
     route('widgets/progress', './routes/widgets/progress.tsx'),
     route('helpers/lingo', './routes/helpers/lingo.tsx'),
+    route('howto/deploy-your-own', './routes/howto/deploy-your-own.tsx'),
   ]),
 
   // OBS sources (no layout - minimal HTML for embedding)
@@ -23,6 +24,9 @@ export default [
 
   // Health check
   route('health', './routes/health.tsx'),
+
+  // Machine-readable site info for AI assistants
+  route('llms.txt', './routes/llms.txt.tsx'),
 
   // Auth routes (loader only)
   route('auth/start', './routes/auth/start.tsx'),

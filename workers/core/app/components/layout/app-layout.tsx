@@ -13,6 +13,7 @@ import {
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { TwitchLogin } from '@/components/twitch-login';
+import { PvtchLogo } from '@/components/icons/pvtch-logo';
 import { cn } from '@/lib/utils';
 
 // Navigation structure
@@ -28,6 +29,10 @@ const navigation = [
   {
     title: 'Support PVTCH',
     items: [
+      {
+        title: 'Host Your Own',
+        href: '/howto/deploy-your-own',
+      },
       {
         title: 'GitHub',
         href: 'https://github.com/jakobo/pvtch',
@@ -144,6 +149,7 @@ export default function AppLayout() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+            <PvtchLogo className="size-8 text-brand" />
             <span className="text-primary">PVTCH</span>
           </Link>
 

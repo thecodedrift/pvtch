@@ -1,0 +1,83 @@
+import type { SVGProps } from 'react';
+
+export function PvtchLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 477 477" {...props}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+        d="M126 176.29l-35.08-57.78c-.4-.67.08-1.52.85-1.52h69.64c.36 0 .69.19.87.51l80.71 143.49 80.71-143.49c.18-.31.51-.51.87-.51h60.69c.77 0 1.25.83.87 1.5l-143.15 250.5-32.79-54"
+      />
+      <line
+        x1={99}
+        y1={198}
+        x2={144}
+        y2={198}
+        fill="none"
+        stroke="currentColor"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+      />
+      <line
+        x1={126}
+        y1={243}
+        x2={180}
+        y2={243}
+        fill="none"
+        stroke="currentColor"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+        d="M162 297h48.04c.78 0 1.26-.85.85-1.52l-53.72-88.48"
+      />
+      <circle
+        cx={81}
+        cy={198}
+        r={18}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+      />
+      <circle
+        cx={139.5}
+        cy={297}
+        r={18}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+      />
+      <circle
+        cx={153}
+        cy={198}
+        r={13.5}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+      />
+      <circle
+        cx={112.5}
+        cy={243}
+        r={13.5}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        strokeWidth={10}
+      />
+    </svg>
+  );
+}

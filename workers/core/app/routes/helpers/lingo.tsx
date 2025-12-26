@@ -2,6 +2,7 @@ import { useMemo, useEffect } from 'react';
 import { useFetcher, useLoaderData, data } from 'react-router';
 import { useForm } from '@tanstack/react-form';
 import { toast } from 'sonner';
+import { Copy } from 'lucide-react';
 import type { Route } from './+types/lingo';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
@@ -9,8 +10,21 @@ import { isValidToken } from '@/lib/twitch-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import RequireTwitchLogin from '@/components/require-twitch-login';
 import type { TTLOptions } from '@@/do/backend';
+
+// Firebot setup images
+import firebotCreateEvent from './_lingo-assets/firebot/create_event.png';
+import firebotHttpRequest from './_lingo-assets/firebot/http_request.png';
+import firebotConditional from './_lingo-assets/firebot/conditional.png';
+import firebotChat from './_lingo-assets/firebot/chat.png';
+
+// MixItUp setup images
+import mixitupChatReceived from './_lingo-assets/mixitup/chat_received.png';
+import mixitupSpecialIdentifier from './_lingo-assets/mixitup/special_identifier.png';
+import mixitupWebRequest from './_lingo-assets/mixitup/web_request.png';
+import mixitupConditionalChat from './_lingo-assets/mixitup/conditional_chat.png';
 
 // Helper to parse cookies from request
 function parseCookies(cookieHeader: string | null): Record<string, string> {
@@ -62,8 +76,21 @@ const parseConfig = (configString?: string): LingoConfig => {
 
 export function meta(_args: Route.MetaArgs) {
   return [
-    { title: 'Lingo Translator - PVTCH' },
-    { name: 'description', content: 'Configure Lingo translation settings' },
+    { title: 'Lingo - Chat Translator for Twitch Streams - PVTCH' },
+    {
+      name: 'description',
+      content:
+        'Translate Twitch chat messages in real-time with well-establlished language models. Connect global audiences by auto-translating foreign language messages. Works with Firebot, MixItUp, and more.',
+    },
+    {
+      property: 'og:title',
+      content: 'Lingo - Chat Translator for Twitch Streams',
+    },
+    {
+      property: 'og:description',
+      content:
+        'Translate Twitch chat messages in real-time. Connect global audiences by auto-translating foreign language messages.',
+    },
   ];
 }
 
@@ -195,13 +222,12 @@ export default function HelpersLingo() {
 
   // Generate URLs for display
   const translateAllUrl = `https://www.pvtch.com/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`;
-  const translateTargetUrl = `https://www.pvtch.com/lingo/to/XX/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`;
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Lingo Translator</h1>
       <p className="text-muted-foreground mb-6">
-        Configure your AI-powered translation settings here.
+        Configure your translation settings here.
       </p>
 
       <form
@@ -242,7 +268,7 @@ export default function HelpersLingo() {
                 <Input
                   id="language"
                   autoComplete="off"
-                  placeholder="en"
+                  placeholder="english"
                   name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -270,27 +296,304 @@ export default function HelpersLingo() {
 
       {/* URLs Section */}
       <div className="mt-8 space-y-4">
-        <div>
-          <h3 className="font-semibold mb-2">Translate All URL</h3>
-          <p className="text-sm text-muted-foreground mb-2">
+        <Field>
+          <FieldLabel>Translate All URL</FieldLabel>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              readOnly
+              value={translateAllUrl}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                navigator.clipboard.writeText(translateAllUrl);
+                toast.success('URL copied to clipboard');
+              }}
+            >
+              <Copy className="size-4" />
+            </Button>
+          </div>
+          <FieldDescription>
             Translates a message to your configured language (only if it's in a
             different language)
-          </p>
-          <code className="block p-2 bg-muted rounded text-sm break-all">
-            {translateAllUrl}
-          </code>
+          </FieldDescription>
+        </Field>
+      </div>
+
+      {/* Setup Guide Section */}
+      <SetupGuide translateUrl={translateAllUrl} />
+    </div>
+  );
+}
+
+function SetupGuide({ translateUrl }: { translateUrl: string }) {
+  return (
+    <div className="mt-8">
+      <h2 className="text-xl font-semibold mb-4">Setup Guide</h2>
+      <div>
+        <p className="text-muted-foreground mb-4">
+          When translating messages from chat, you'll send the entire message
+          along with the sender's username. If the language is different from
+          your target language, you'll get back a translated version.
+        </p>
+
+        <div className="bg-muted p-3 rounded-md mb-6 font-mono text-sm">
+          [nl] This is translated text from Dutch (nl) to English (en)
         </div>
-        <div>
-          <h3 className="font-semibold mb-2">
-            Translate to Specific Language URL
-          </h3>
-          <p className="text-sm text-muted-foreground mb-2">
-            Replace XX with a language code (like "es", "fr", "de")
-          </p>
-          <code className="block p-2 bg-muted rounded text-sm break-all">
-            {translateTargetUrl}
-          </code>
-        </div>
+
+        <Tabs defaultValue="firebot">
+          <TabsList className="mb-4">
+            <TabsTrigger value="firebot">Firebot</TabsTrigger>
+            <TabsTrigger value="streamerbot">Streamer.bot</TabsTrigger>
+            <TabsTrigger value="mixitup">MixItUp</TabsTrigger>
+            <TabsTrigger value="custom">Custom</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="firebot" className="space-y-6">
+            <div>
+              <h3 className="font-semibold mb-2">Create a new Event</h3>
+              <p className="text-muted-foreground mb-3">
+                In the Firebot app, go to the <strong>Events</strong> section
+                and create a new event associated with{' '}
+                <code className="bg-muted px-1 rounded">
+                  Chat Message (Twitch)
+                </code>
+              </p>
+              <img
+                src={firebotCreateEvent}
+                alt="Creating a new Firebot Event"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">The Three Event Effects</h3>
+              <p className="text-muted-foreground mb-2">
+                Your Firebot Event will have three effects:
+              </p>
+              <ol className="list-decimal list-inside text-muted-foreground mb-3 space-y-1">
+                <li>HTTP Request (send the message to Lingo)</li>
+                <li>
+                  Conditional Effects (chat only if there is a translation)
+                </li>
+                <li>
+                  Conditional Effect → Chat (send translation to your channel)
+                </li>
+              </ol>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">1. HTTP Request Effect</h3>
+              <p className="text-muted-foreground mb-2">
+                In the HTTP Request effect, set it up as follows:
+              </p>
+              <p className="text-muted-foreground mb-2">
+                <strong>URL:</strong> Use this URL with Firebot variables:
+              </p>
+              <div className="bg-muted p-2 rounded-md mb-2 font-mono text-xs break-all">
+                {translateUrl
+                  .replace('SENDINGUSER', '$user')
+                  .replace('MESSAGEHERE', '$encodeForUrl[$chatMessage]')}
+              </div>
+              <p className="text-muted-foreground mb-3">
+                <strong>Method:</strong> GET
+              </p>
+              <img
+                src={firebotHttpRequest}
+                alt="Firebot HTTP Request Effect Setup"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">2. Conditional Effects</h3>
+              <p className="text-muted-foreground mb-2">
+                Add a Conditional Effect to check if the response got data back.
+              </p>
+              <p className="text-muted-foreground mb-3">
+                <strong>Condition (all):</strong>{' '}
+                <code className="bg-muted px-1 rounded">
+                  $effectOutput[httpResponse]
+                </code>{' '}
+                is not blank
+              </p>
+              <img
+                src={firebotConditional}
+                alt="Firebot Conditional Effect Setup"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">
+                3. Chat Effect (in conditional)
+              </h3>
+              <p className="text-muted-foreground mb-2">
+                In the Chat effect, reply to the original poster:
+              </p>
+              <ul className="text-muted-foreground mb-3 space-y-1">
+                <li>
+                  <strong>Chat as:</strong> Bot
+                </li>
+                <li>
+                  <strong>Message:</strong>{' '}
+                  <code className="bg-muted px-1 rounded">
+                    $effectOutput[httpResponse]
+                  </code>
+                </li>
+                <li>
+                  <strong>Send as reply:</strong> Yes
+                </li>
+              </ul>
+              <img
+                src={firebotChat}
+                alt="Firebot Chat Effect Setup"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="streamerbot">
+            <p className="text-muted-foreground">
+              Coming soon. If you'd like to write this guide, please reach out
+              on{' '}
+              <a
+                href="https://github.com/jakobo/pvtch"
+                className="text-primary underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                GitHub
+              </a>
+              !
+            </p>
+          </TabsContent>
+
+          <TabsContent value="mixitup" className="space-y-6">
+            <div>
+              <h3 className="font-semibold mb-2">
+                Create a new Chat Message Received Event
+              </h3>
+              <p className="text-muted-foreground mb-3">
+                The Chat Message Received event triggers whenever a message is
+                sent in your chat. Find the event under{' '}
+                <strong>Events → Chat</strong> (not Twitch).
+              </p>
+              <img
+                src={mixitupChatReceived}
+                alt="Creating a Chat Received Event in MixItUp"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">The Three Event Actions</h3>
+              <ol className="list-decimal list-inside text-muted-foreground mb-3 space-y-1">
+                <li>Special Identifier Action - prepare the message</li>
+                <li>Web Request Action - send the message to PVTCH</li>
+                <li>Conditional + Chat Action - send translation to channel</li>
+              </ol>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">
+                1. Special Identifier Action
+              </h3>
+              <ul className="text-muted-foreground mb-3 space-y-1">
+                <li>
+                  <strong>Name:</strong>{' '}
+                  <code className="bg-muted px-1 rounded">encodedMessage</code>
+                </li>
+                <li>
+                  <strong>Value:</strong>{' '}
+                  <code className="bg-muted px-1 rounded">
+                    uriescape($message)
+                  </code>
+                </li>
+              </ul>
+              <img
+                src={mixitupSpecialIdentifier}
+                alt="Setting Up the MixItUp Special Identifier"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">2. Web Request Action</h3>
+              <p className="text-muted-foreground mb-2">
+                <strong>URL:</strong> Use this URL with MixItUp variables:
+              </p>
+              <div className="bg-muted p-2 rounded-md mb-2 font-mono text-xs break-all">
+                {translateUrl
+                  .replace('SENDINGUSER', '$user')
+                  .replace('MESSAGEHERE', '$encodedMessage')}
+              </div>
+              <p className="text-muted-foreground mb-3">
+                <strong>Response Processing Type:</strong> Plain Text
+              </p>
+              <img
+                src={mixitupWebRequest}
+                alt="The MixItUp Web Request Action"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">
+                3. Conditional and Chat Actions
+              </h3>
+              <p className="text-muted-foreground mb-2">
+                Add a Conditional Action to check if PVTCH returned data:
+              </p>
+              <ul className="text-muted-foreground mb-3 space-y-1">
+                <li>
+                  <strong>First Value:</strong>{' '}
+                  <code className="bg-muted px-1 rounded">
+                    $webrequestresult
+                  </code>
+                </li>
+                <li>
+                  <strong>Compare:</strong>{' '}
+                  <code className="bg-muted px-1 rounded">{'<>'}</code>
+                </li>
+                <li>
+                  <strong>Second Value:</strong> (blank)
+                </li>
+              </ul>
+              <p className="text-muted-foreground mb-2">
+                <strong>Chat Message:</strong>{' '}
+                <code className="bg-muted px-1 rounded">
+                  @$user $webrequestresult
+                </code>
+              </p>
+              <img
+                src={mixitupConditionalChat}
+                alt="MixItUp Conditional Action Setup"
+                className="border rounded-lg shadow-md"
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="custom">
+            <p className="text-muted-foreground">
+              Coming soon. If you'd like to write this guide, please reach out
+              on{' '}
+              <a
+                href="https://github.com/jakobo/pvtch"
+                className="text-primary underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                GitHub
+              </a>
+              !
+            </p>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
