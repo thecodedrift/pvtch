@@ -1,0 +1,57 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "pvtch-api",
+  "main": "./cloudflare/handler.ts",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-04-01",
+  "upload_source_maps": true,
+
+  "vars": {
+    "TWITCH_CLIENT_ID": "dinofhiya3gwjh5feq4di7oeurrxdp",
+    "TWITCH_REDIRECT_URI": "https://api.pvtch.com/auth/callback",
+    "PVTCH_APP_URL": "https://www.pvtch.com"
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["MyDurableObject"]
+    },
+    {
+      "tag": "v2",
+      "renamed_classes": [{ "from": "MyDurableObject", "to": "PvtchBackend" }]
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PVTCH_BACKEND",
+        "class_name": "PvtchBackend"
+      }
+    ]
+  },
+
+  "kv_namespaces": [
+    {
+      "binding": "PVTCH_KV",
+      "id": "3588c48277284bfb8e673399f904b794"
+    },
+    {
+      "binding": "PVTCH_ACCOUNTS",
+      "id": "bc19b133947e4936b7ce4d808b27023e"
+    },
+    {
+      "binding": "PVTCH_TRANSLATIONS",
+      "id": "04902249df1b4752b1e89742e3dc7643"
+    }
+  ],
+
+  "ai": {
+    "binding": "AI"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

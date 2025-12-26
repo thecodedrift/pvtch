@@ -1,0 +1,261 @@
+import type { Route } from './+types/lingo.translate.$token';
+import { cloudflareEnvironmentContext } from '@/context';
+import { normalizeKey } from '@/lib/normalize-key';
+import { isValidToken } from '@/lib/twitch-data';
+import MurmurHash3 from 'imurmurhash';
+import {
+  normalizeString,
+  translate,
+  type TranslationResponse,
+} from '@/lib/translator';
+import { LINGO_KEY, type LingoConfig } from '@/lib/constants/lingo';
+
+const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
+
+// qwen 30b isn't in cf types but is supported
+const CURRENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8' as keyof AiModels;
+
+const ALWAYS_IGNORED_USERS = new Set(
+  [
+    'streamelements',
+    'streamlabs',
+    'nightbot',
+    'moobot',
+    'wizebot',
+    'phantombot',
+    'sery_bot',
+    'coebot',
+    'ankhbot',
+    'fossabot',
+    'twitch',
+  ].map((v) => v.toLowerCase())
+);
+
+interface TranslateRequestContent {
+  message?: string;
+  user?: string;
+}
+
+async function handleTranslate(
+  token: string,
+  message: string,
+  user: string,
+  env: Env
+): Promise<Response> {
+  const value = message.trim();
+  const userTrimmed = user.trim();
+
+  // skip always ignored users
+  if (ALWAYS_IGNORED_USERS.has(userTrimmed.toLowerCase())) {
+    console.log('User is in always ignored bots list', { user: userTrimmed, value });
+    return new Response('', { status: 200 });
+  }
+
+  if (value.startsWith('!')) {
+    console.log('Command detected, skipping translation', { user: userTrimmed, value });
+    return new Response('', { status: 200 });
+  }
+
+  const normalized = normalizeString(value);
+  console.log('incoming lingo translate:', { user: userTrimmed, normalized });
+
+  if (normalized.length === 0 || userTrimmed.length === 0) {
+    console.log('Skipped, no message or user', { user: userTrimmed, normalized });
+    return new Response('', { status: 200 });
+  }
+
+  if (value.toLowerCase().includes('imtyping')) {
+    console.log('Translation Skip: imtyping', { user: userTrimmed, normalized });
+    return new Response('', { status: 200 });
+  }
+
+  if (!normalized.includes(' ')) {
+    console.log('Single word message, skipping', { user: userTrimmed, normalized });
+    return new Response('', { status: 200 });
+  }
+
+  const userid = await isValidToken(token, env);
+
+  if (!userid) {
+    console.log('Invalid token for lingo translate', { token });
+    return new Response('', { status: 200 });
+  }
+
+  // fetch kv as late as possible to avoid wasted work
+  const kvName = normalizeKey(token, LINGO_KEY);
+  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(kvName);
+  const stub = env.PVTCH_BACKEND.get(cdo);
+  const kvConfigString = await stub.get();
+
+  let kvConfig: Partial<LingoConfig> | undefined;
+  try {
+    kvConfig = kvConfigString
+      ? (JSON.parse(kvConfigString) as Partial<LingoConfig>)
+      : undefined;
+  } catch (error) {
+    console.error('failed to parse lingo config:', error);
+  }
+
+  if (!kvConfig) {
+    // no config, no translate
+    console.log('No lingo config found', { token, kvName });
+    return new Response('', { status: 200 });
+  }
+
+  if (!kvConfig.bots || !kvConfig.language) {
+    // incomplete config, no translate
+    console.log('Incomplete lingo config', { token, kvConfig });
+    return new Response('', { status: 200 });
+  }
+
+  const config: LingoConfig = {
+    bots: ([...(kvConfig?.bots ?? [])].filter((v) => v !== undefined)).map(
+      (v) => v.toLowerCase()
+    ),
+    language: kvConfig?.language ?? 'en',
+  };
+
+  if (config.bots.includes(userTrimmed.toLowerCase())) {
+    // dont reply to ignored bots / users
+    console.log('User is in ignored bots list', { user: userTrimmed, normalized });
+    return new Response('', { status: 200 });
+  }
+
+  console.log('Lingo translate config:', config);
+
+  const cacheKey = new MurmurHash3(
+    normalized.toLowerCase() + '|' + config.language + '|' + CURRENT_MODEL
+  )
+    .result()
+    .toString(16);
+
+  const saveToCache = async (cacheValue: string) => {
+    if (env.DISABLE_CACHE) {
+      return;
+    }
+
+    try {
+      await env.PVTCH_TRANSLATIONS.put(cacheKey, cacheValue, {
+        expirationTtl: CACHE_TIME,
+      });
+      console.log('Saved translation to cache', {
+        cacheKey,
+        translatedText: cacheValue,
+      });
+    } catch (error) {
+      console.error('Failed to save translation to cache', {
+        cacheKey,
+        translatedText: cacheValue,
+        error: error,
+      });
+    }
+  };
+
+  const existing = await env.PVTCH_TRANSLATIONS.get(cacheKey);
+  if (existing) {
+    console.log('Found translation in cache', {
+      cacheKey,
+      translatedText: existing,
+    });
+
+    if (existing === '-') {
+      // cached no-translate result
+      return new Response('', { status: 200 });
+    }
+
+    return new Response(existing, { status: 200 });
+  }
+
+  let llmResponse: TranslationResponse | undefined;
+
+  try {
+    llmResponse = await translate(normalized, {
+      targetLanguage: config.language,
+      model: CURRENT_MODEL,
+      env: env,
+    });
+  } catch (error) {
+    console.error('Lingo translate failed:', error);
+    return new Response('', { status: 200 });
+  }
+
+  if (!llmResponse) {
+    console.error('Lingo translate failed');
+    return new Response('', { status: 200 });
+  }
+
+  console.log('LLM Response:', { input: normalized, output: llmResponse });
+
+  const identical = (string1: string, string2: string) => {
+    return (
+      normalizeString(string1).toLowerCase().trim() ===
+      normalizeString(string2).toLowerCase().trim()
+    );
+  };
+
+  if (identical(llmResponse.translated_text, normalized)) {
+    console.log('Translation result is identical to input');
+    await saveToCache('-'); // cache no-translate result
+    return new Response('', { status: 200 });
+  }
+
+  if (identical(llmResponse.detected_language, llmResponse.target_language)) {
+    console.log('Detected language is the same as target language');
+    await saveToCache('-'); // cache no-translate result
+    return new Response('', { status: 200 });
+  }
+
+  // did we translate into our own language by mistake?
+  if (identical(llmResponse.detected_language, 'unknown')) {
+    await saveToCache('-'); // cache no-translate result
+    return new Response('', { status: 200 });
+  }
+
+  // did we translate into our own language by mistake?
+  if (llmResponse.translated_text === normalized) {
+    await saveToCache('-'); // cache no-translate result
+    return new Response('', { status: 200 });
+  }
+
+  if (
+    llmResponse.translated_text
+      .replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1')
+      .trim() === ''
+  ) {
+    console.log('Translation result is empty after removing usernames');
+    await saveToCache('-'); // cache no-translate result
+    return new Response('', { status: 200 });
+  }
+
+  const output = `ImTyping [${llmResponse.detected_language}] ${llmResponse.translated_text}`;
+
+  await saveToCache(output);
+
+  return new Response(output, {
+    status: 200,
+  });
+}
+
+// GET request - params from query
+export async function loader({ params, request, context }: Route.LoaderArgs) {
+  const env = context.get(cloudflareEnvironmentContext);
+  const { token } = params;
+
+  const url = new URL(request.url);
+  const message = url.searchParams.get('message') ?? '';
+  const user = url.searchParams.get('user') ?? '';
+
+  return handleTranslate(token, message, user, env);
+}
+
+// POST request - params from body
+export async function action({ params, request, context }: Route.ActionArgs) {
+  const env = context.get(cloudflareEnvironmentContext);
+  const { token } = params;
+
+  const content = (await request.json().catch(() => ({}))) as TranslateRequestContent | undefined;
+  const message = String(content?.message ?? '');
+  const user = String(content?.user ?? '');
+
+  return handleTranslate(token, message, user, env);
+}

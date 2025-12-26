@@ -1,6 +1,8 @@
 {
   "name": "pvtch-api",
   "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.4",
   "cloudflare": {
     "label": "PVTCH Backend APIs",
     "products": [
@@ -16,27 +18,22 @@
     "preview_image_url": "https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/fc7b4b62-442b-4769-641b-ad4422d74300/public"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@types/imurmurhash": "^0.1.4",
     "@types/node": "^24.9.1",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-unicorn": "^57.0.0",
+    "lint-staged": "^15.3.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
     "typescript": "5.8.3",
-    "wrangler": "4.21.x"
+    "typescript-eslint": "^8.19.0",
+    "wrangler": "^4.56.0"
   },
   "scripts": {
-    "cf-typegen": "wrangler types",
-    "check": "tsc && wrangler deploy --dry-run",
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "wrangler": "wrangler"
-  },
-  "dependencies": {
-    "@formatjs/intl-segmenter": "^11.7.12",
-    "base-x": "^5.0.1",
-    "imurmurhash": "^0.1.4",
-    "itty-router": "^5.0.22",
-    "p-retry": "^7.1.0",
-    "psl": "^1.15.0",
-    "tinyld": "^1.3.4",
-    "zod": "^4.2.1"
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix"
   }
 }
