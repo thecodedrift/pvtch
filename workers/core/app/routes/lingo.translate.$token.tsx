@@ -28,6 +28,7 @@ const ALWAYS_IGNORED_USERS = new Set(
     'ankhbot',
     'fossabot',
     'twitch',
+    'super_sweet_bot',
   ].map((v) => v.toLowerCase())
 );
 
