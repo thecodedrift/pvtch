@@ -1,6 +1,6 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @plugin "@tailwindcss/typography";
-@import "tw-animate-css";
+@import 'tw-animate-css';
 
 /* shad-cn dark variant */
 @custom-variant dark (&:is(.dark *));
@@ -119,6 +119,30 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+}
+
+@theme {
+  --animate-infinite-scroll: infinite-scroll 10s linear infinite;
+  @keyframes infinite-scroll {
+    0% {
+      transform: translateY(0%);
+    }
+    100% {
+      transform: translateY(calc(0px - 50%));
+    }
+  }
+
+  --animate-appear: appear 400ms linear forwards;
+  @keyframes appear {
+    0% {
+      transform: scaleY(0%);
+      opacity: 0;
+    }
+    100% {
+      transform: scaleY(100%);
+      opacity: 1;
+    }
+  }
 }
 
 @layer base {

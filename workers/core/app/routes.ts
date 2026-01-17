@@ -21,6 +21,7 @@ export default [
     'sources/progress/:token/:name',
     './routes/sources/progress.$token.$name.tsx'
   ),
+  route('sources/todo/:channel', './routes/sources/todo.$channel.tsx'),
 
   // Health check
   route('health', './routes/health.tsx'),
@@ -43,10 +44,22 @@ export default [
   // Deprecated routes (return 410 Gone)
   route(':token/kv/:id/set', './routes/deprecated/$token.kv.$id.set.tsx'),
   route(':token/kv/:id/get', './routes/deprecated/$token.kv.$id.get.tsx'),
-  route(':token/lingo/config/set', './routes/deprecated/$token.lingo.config.set.tsx'),
-  route(':token/lingo/config/get', './routes/deprecated/$token.lingo.config.get.tsx'),
-  route(':token/progress/:name/set', './routes/deprecated/$token.progress.$name.set.tsx'),
-  route(':token/progress/:name/get', './routes/deprecated/$token.progress.$name.get.tsx'),
+  route(
+    ':token/lingo/config/set',
+    './routes/deprecated/$token.lingo.config.set.tsx'
+  ),
+  route(
+    ':token/lingo/config/get',
+    './routes/deprecated/$token.lingo.config.get.tsx'
+  ),
+  route(
+    ':token/progress/:name/set',
+    './routes/deprecated/$token.progress.$name.set.tsx'
+  ),
+  route(
+    ':token/progress/:name/get',
+    './routes/deprecated/$token.progress.$name.get.tsx'
+  ),
 
   // Catch-all 404
   route('*', './routes/$.tsx'),

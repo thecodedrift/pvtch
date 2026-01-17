@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useEventCallback } from 'usehooks-ts';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TwitchIcon } from '@/components/ui/icons/twitch';
 import useCookie from '@/hooks/use-cookie';
@@ -9,13 +8,16 @@ export const TwitchLogin = () => {
   const [loginUrl, setLoginUrl] = useState<URL | undefined>();
   const isLoggedIn = !!userToken;
 
-  const handleLogout = useEventCallback(() => {
-    removeUserToken();
-    // reload the page
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  });
+  const handleLogout = useMemo(
+    () => () => {
+      removeUserToken();
+      // reload the page
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {

@@ -13,6 +13,17 @@ export default defineConfig({
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),
+    {
+      // https://github.com/cloudflare/workers-sdk/issues/8909#issuecomment-3401112596
+      name: 'cloudflare-vite-plugin-fix',
+      configEnvironment(name, config) {
+        const isDevelopment =
+          process.env.npm_lifecycle_script?.endsWith('react-router dev');
+        if (name === 'ssr' && !isDevelopment) {
+          delete config.dev;
+        }
+      },
+    },
   ],
   resolve: {
     alias: {
