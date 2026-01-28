@@ -302,6 +302,7 @@ export default function TodoSource() {
         (flags.mod || flags.broadcaster)
       ) {
         resetTasks(updateTasks, message.split(' ')[0]);
+        setEnableScroll(false);
       }
 
       if (
@@ -309,6 +310,7 @@ export default function TodoSource() {
         (flags.mod || flags.broadcaster)
       ) {
         cleanTasks(updateTasks);
+        setEnableScroll(false);
       }
     };
 
