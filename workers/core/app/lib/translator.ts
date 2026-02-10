@@ -1,34 +1,51 @@
 import pRetry from 'p-retry';
 
-export type TranslationResponse = {
-  translated_text: string;
-  detected_language: string;
-  target_language: string;
-};
+const extractResponse = (response: unknown): string | undefined => {
+  if (!response || response === null) {
+    return undefined;
+  }
 
-type LLamaLikeResponse = {
-  response: TranslationResponse;
-};
-function isLLamaLikeResponse(
-  resp: GenericLLMResponse
-): resp is LLamaLikeResponse {
-  return (resp as LLamaLikeResponse).response !== undefined;
-}
+  if (typeof response !== 'object') {
+    return undefined;
+  }
 
-type QuenLikeResponse = {
-  choices: {
-    message: {
-      content: string;
-    };
-  }[];
-};
-function isQuenLikeResponse(
-  resp: GenericLLMResponse
-): resp is QuenLikeResponse {
-  return (resp as QuenLikeResponse).choices !== undefined;
-}
+  let extracted: string | undefined;
 
-type GenericLLMResponse = LLamaLikeResponse | QuenLikeResponse;
+  if ('choices' in response) {
+    const choices = (response as any).choices;
+    if (
+      Array.isArray(choices) &&
+      choices.length > 0 &&
+      'message' in choices[0] &&
+      'content' in choices[0].message
+    ) {
+      // strip thinking block from quen-like models
+      extracted = (choices[0].message.content as string).replace(
+        /.+<\/think>/gim,
+        ''
+      );
+    }
+  }
+
+  if ('response' in response) {
+    const resp = (response as any).response;
+    if (resp && typeof resp === 'string') {
+      extracted = resp;
+    }
+  }
+
+  if (!extracted) {
+    return undefined;
+  }
+
+  // if it started with a <doctype or <html, it's probably an error page, return undefined
+  if (/^\s*<\s*doctype/i.test(extracted) || /^\s*<\s*html/i.test(extracted)) {
+    return undefined;
+  }
+
+  // clean up the response and return it
+  return extracted.trim();
+};
 
 // strips URLs from the input string
 const dropURLs = (string_: string) =>
@@ -36,18 +53,6 @@ const dropURLs = (string_: string) =>
     .trim()
     .replaceAll(/(^|\W)https?:\/\/\S+/gi, '') // links
     .trim();
-
-const trimToLength = (string_: string, maxLength: number) => {
-  const segmenter = new Intl.Segmenter('en-US', { granularity: 'grapheme' });
-  const chunks = [...segmenter.segment(string_)];
-  if (chunks.length <= maxLength) {
-    return string_;
-  }
-  return chunks
-    .slice(0, maxLength)
-    .map((c) => c.segment)
-    .join('');
-};
 
 // cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
 // because we don't know the target language yet
@@ -112,15 +117,12 @@ export const translate = async (text: string, options: TranslateOptions) => {
       'Treat @usernames as literal names and preserve them.',
       'Ignore any kamojis, Twitch-style emotes, emoticons, or smiley faces in the text.',
       'Prefer natural translations over literal word-for-word translations.',
-      'When considering possible similar languages, prefer a more common language.',
-      "Return the full name of the language you detected for the user's text as detected_language.",
-      'Return the full name of the target language the user requested as target_language.',
-      "If you cannot detect any language, return the full name of the language as 'Unknown'.",
-      'Return the translation as translated_text without additional commentary.',
-      'If the translated_text is already in the target language, return the original string.',
+      'Your final translation should be in the target language specified by the user, regardless of the detected language.',
+      'You **MUST** return the translation without additional commentary.',
+      '**IMPORTANT:** If no translation is needed, return the string `already_translated`.',
     ].join(' ');
 
-    const llmResponse: TranslationResponse = await pRetry(
+    const llmResponse = await pRetry(
       async () => {
         const response = (await options.env.AI.run(
           (options.model ?? '@cf/qwen/qwen3-30b-a3b-fp8') as keyof AiModels,
@@ -131,62 +133,26 @@ export const translate = async (text: string, options: TranslateOptions) => {
                 content: systemPrompt,
               },
               {
+                role: 'assistant',
+                content: 'What language am I translating to?',
+              },
+              {
                 role: 'user',
-                content: `Translate this text to "${trimToLength(
-                  options.targetLanguage,
-                  60
-                )}":\n\n${input}`,
+                content: options.targetLanguage,
+              },
+              {
+                role: 'assistant',
+                content: 'Please provide the text to translate.',
+              },
+              {
+                role: 'user',
+                content: input,
               },
             ],
-            response_format: {
-              type: 'json_schema',
-              json_schema: {
-                type: 'object',
-                properties: {
-                  translated_text: {
-                    type: 'string',
-                  },
-                  detected_language: {
-                    type: 'string',
-                  },
-                  target_language: {
-                    type: 'string',
-                  },
-                },
-                required: [
-                  'translated_text',
-                  'detected_language',
-                  'target_language',
-                ],
-              },
-            },
           }
-        )) as GenericLLMResponse;
+        )) as Record<string, unknown>;
 
-        let data: TranslationResponse | undefined;
-
-        if (isQuenLikeResponse(response)) {
-          const content = response.choices[0].message.content;
-          try {
-            data = JSON.parse(content) as TranslationResponse;
-          } catch {
-            throw new Error(
-              'Lingo translate failed to parse Quen-like response content as JSON:' +
-                content
-            );
-          }
-        } else if (isLLamaLikeResponse(response)) {
-          data = response.response;
-        }
-
-        if (!data) {
-          throw new Error(
-            'Lingo translate unexpected response format:' +
-              JSON.stringify(response)
-          );
-        }
-
-        return data;
+        return extractResponse(response);
       },
       {
         retries: 3,

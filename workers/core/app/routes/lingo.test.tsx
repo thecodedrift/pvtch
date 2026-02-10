@@ -6,6 +6,8 @@ const fixtures = [
   'galing na curlyg5Wow',
   'kumusta na tayo, @ohaiDrifty ? f0x64Marbie',
   "I shouldn't be translated thecod67Lol",
+  'haiiiiii chelle!',
+  "내 황홀에 취해, you can't look away",
 ] as const;
 type Inputs = (typeof fixtures)[number];
 
@@ -13,7 +15,7 @@ const targetLanguage = 'English';
 
 const models: Array<keyof AiModels> = [
   // $0.66 per M input tokens, $1.00 per M output tokens
-  '@cf/qwen/qwq-32b',
+  // '@cf/qwen/qwq-32b',
 
   // in AI models, but not in types yet
   // $0.051 per M input tokens, $0.34 per M output tokens
@@ -34,7 +36,6 @@ async function runTests(env: Env): Promise<Response> {
       keyof AiModels,
       {
         translated_text: string;
-        detected_language: string;
         target_language: string;
       }
     >
@@ -49,7 +50,6 @@ async function runTests(env: Env): Promise<Response> {
         keyof AiModels,
         {
           translated_text: string;
-          detected_language: string;
           target_language: string;
         }
       >
@@ -69,9 +69,8 @@ async function runTests(env: Env): Promise<Response> {
 
         const current = translations.get(fixture)!;
         current[model] = {
-          translated_text: llmResponse?.translated_text || '',
-          detected_language: llmResponse?.detected_language || 'Unknown',
-          target_language: llmResponse?.target_language || 'Unknown',
+          translated_text: llmResponse || '',
+          target_language: targetLanguage,
         };
       })();
       promises.push(p);
@@ -86,7 +85,7 @@ async function runTests(env: Env): Promise<Response> {
     for (const model of models) {
       const modelResult = translationResult[model];
       output.push(
-        `Model: ${String(model)}\nDetected Language: ${modelResult.detected_language}\nTarget Language: ${modelResult.target_language}\nTranslation: ${modelResult.translated_text}\n`
+        `Model: ${String(model)}\nTarget Language: ${modelResult.target_language}\nTranslation: ${modelResult.translated_text}\n`
       );
     }
     output.push('\n');

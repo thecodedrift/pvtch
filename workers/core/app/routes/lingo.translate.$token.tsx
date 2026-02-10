@@ -3,11 +3,7 @@ import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
 import MurmurHash3 from 'imurmurhash';
-import {
-  normalizeString,
-  translate,
-  type TranslationResponse,
-} from '@/lib/translator';
+import { normalizeString, translate } from '@/lib/translator';
 import { LINGO_KEY, type LingoConfig } from '@/lib/constants/lingo';
 
 const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
@@ -193,7 +189,7 @@ async function handleTranslate(
     return new Response(existing, { status: 200 });
   }
 
-  let llmResponse: TranslationResponse | undefined;
+  let llmResponse: string | undefined;
 
   try {
     llmResponse = await translate(normalized, {
@@ -220,41 +216,27 @@ async function handleTranslate(
     );
   };
 
-  if (identical(llmResponse.translated_text, normalized)) {
+  if (identical(llmResponse, normalized)) {
     console.log('Translation result is identical to input');
     await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
-  if (identical(llmResponse.detected_language, llmResponse.target_language)) {
+  if (llmResponse.toLowerCase() === 'already_translated') {
     console.log('Detected language is the same as target language');
     await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
-  // did we translate into our own language by mistake?
-  if (identical(llmResponse.detected_language, 'unknown')) {
-    await saveToCache('-'); // cache no-translate result
-    return new Response('', { status: 200 });
-  }
-
-  // did we translate into our own language by mistake?
-  if (llmResponse.translated_text === normalized) {
-    await saveToCache('-'); // cache no-translate result
-    return new Response('', { status: 200 });
-  }
-
   if (
-    llmResponse.translated_text
-      .replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1')
-      .trim() === ''
+    llmResponse.replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1').trim() === ''
   ) {
     console.log('Translation result is empty after removing usernames');
     await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
-  const output = `ImTyping [${llmResponse.detected_language}] ${llmResponse.translated_text}`;
+  const output = `ImTyping ${llmResponse}`;
 
   await saveToCache(output);
 
