@@ -5,28 +5,14 @@ import { isValidToken } from '@/lib/twitch-data';
 import MurmurHash3 from 'imurmurhash';
 import { normalizeString, translate } from '@/lib/translator';
 import { LINGO_KEY, type LingoConfig } from '@/lib/constants/lingo';
+import { knownBots } from '@/lib/known-bots';
 
 const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
 
 // qwen 30b isn't in cf types but is supported
 const CURRENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8' as keyof AiModels;
 
-const ALWAYS_IGNORED_USERS = new Set(
-  [
-    'streamelements',
-    'streamlabs',
-    'nightbot',
-    'moobot',
-    'wizebot',
-    'phantombot',
-    'sery_bot',
-    'coebot',
-    'ankhbot',
-    'fossabot',
-    'twitch',
-    'super_sweet_bot',
-  ].map((v) => v.toLowerCase())
-);
+const ALWAYS_IGNORED_USERS = new Set(knownBots.map((v) => v.toLowerCase()));
 
 interface TranslateRequestContent {
   message?: string;
