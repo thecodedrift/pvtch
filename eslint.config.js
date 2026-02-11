@@ -36,6 +36,14 @@ export default tseslint.config(
           ],
         },
       ],
+      'unicorn/prevent-abbreviations': [
+        'error',
+        {
+          allowList: {
+            env: true,
+          },
+        },
+      ],
       // Disable forced numeric separators - 5000 is more readable than 5_000
       'unicorn/numeric-separators-style': 'off',
       // Allow underscore-prefixed variables to be unused

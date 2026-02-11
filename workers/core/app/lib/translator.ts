@@ -1,4 +1,22 @@
 import pRetry from 'p-retry';
+import { similar } from '@/lib/strings';
+
+const systemPrompt = `You are a translation assistant. Translate user messages into the specified target language.
+
+You'll ask for the language and then the text to translate.
+
+Rules:
+- Preserve @usernames exactly as-is
+- Ignore kaomoji, Twitch emotes, emoticons, and smileys
+- Prefer natural, fluent translations over literal word-for-word
+- Do NOT correct grammar, spelling, or punctuation — only translate
+
+You MUST respond with EXACTLY ONE of:
+1. The translated text only — no commentary, notes, or explanation
+2. The single word NOOP — if the text is already in the target language or needs no translation
+
+NEVER echo the original text back unchanged. If it does not need translation, you MUST respond NOOP.
+/no_think`;
 
 const extractResponse = (response: unknown): string | undefined => {
   if (!response || response === null) {
@@ -11,27 +29,22 @@ const extractResponse = (response: unknown): string | undefined => {
 
   let extracted: string | undefined;
 
-  if ('choices' in response) {
-    const choices = (response as any).choices;
-    if (
-      Array.isArray(choices) &&
-      choices.length > 0 &&
-      'message' in choices[0] &&
-      'content' in choices[0].message
-    ) {
-      // strip thinking block from quen-like models
-      extracted = (choices[0].message.content as string).replace(
-        /.+<\/think>/gim,
-        ''
-      );
+  // qwen-like respones have a choices array
+  if ('choices' in response && Array.isArray(response.choices)) {
+    const choices = response.choices as
+      | { message?: { role?: string; content?: string } }[]
+      | undefined;
+    const content = choices?.[0]?.message?.content;
+    if (content) {
+      // strip thinking block from qwen-like models
+      // eslint-disable-next-line unicorn/prefer-string-replace-all
+      extracted = content.replace(/.+<\/think>/gim, '');
     }
   }
 
-  if ('response' in response) {
-    const resp = (response as any).response;
-    if (resp && typeof resp === 'string') {
-      extracted = resp;
-    }
+  // older llama models have a response property
+  if ('response' in response && typeof response.response === 'string') {
+    extracted = response.response;
   }
 
   if (!extracted) {
@@ -104,6 +117,7 @@ export const normalizeString = (string_: string) => {
 
 type TranslateOptions = {
   targetLanguage: string;
+  similarityThreshold?: number;
   model?: keyof AiModels;
   env: Env;
 };
@@ -112,20 +126,10 @@ export const translate = async (text: string, options: TranslateOptions) => {
   const input = normalizeString(text);
 
   try {
-    const systemPrompt = [
-      "You are a helpful translation assistant, translating to the user's requested language.",
-      'Treat @usernames as literal names and preserve them.',
-      'Ignore any kamojis, Twitch-style emotes, emoticons, or smiley faces in the text.',
-      'Prefer natural translations over literal word-for-word translations.',
-      'Your final translation should be in the target language specified by the user, regardless of the detected language.',
-      'You **MUST** return the translation without additional commentary.',
-      '**IMPORTANT:** If no translation is needed, return the string `already_translated`.',
-    ].join(' ');
-
     const llmResponse = await pRetry(
       async () => {
         const response = (await options.env.AI.run(
-          (options.model ?? '@cf/qwen/qwen3-30b-a3b-fp8') as keyof AiModels,
+          options.model ?? '@cf/qwen/qwen3-30b-a3b-fp8',
           {
             messages: [
               {
@@ -133,20 +137,8 @@ export const translate = async (text: string, options: TranslateOptions) => {
                 content: systemPrompt,
               },
               {
-                role: 'assistant',
-                content: 'What language am I translating to?',
-              },
-              {
                 role: 'user',
-                content: options.targetLanguage,
-              },
-              {
-                role: 'assistant',
-                content: 'Please provide the text to translate.',
-              },
-              {
-                role: 'user',
-                content: input,
+                content: `Translate to ${options.targetLanguage}:\n${input}`,
               },
             ],
           }
@@ -158,6 +150,14 @@ export const translate = async (text: string, options: TranslateOptions) => {
         retries: 3,
       }
     );
+
+    if (
+      llmResponse &&
+      options.similarityThreshold !== undefined &&
+      similar(normalizeString(llmResponse), input, options.similarityThreshold)
+    ) {
+      return 'NOOP';
+    }
 
     return llmResponse;
   } catch (error) {

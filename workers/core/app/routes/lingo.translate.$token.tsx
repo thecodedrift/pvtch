@@ -180,6 +180,7 @@ async function handleTranslate(
   try {
     llmResponse = await translate(normalized, {
       targetLanguage: config.language,
+      similarityThreshold: 0.8,
       model: CURRENT_MODEL,
       env: env,
     });
@@ -195,20 +196,7 @@ async function handleTranslate(
 
   console.log('LLM Response:', { input: normalized, output: llmResponse });
 
-  const identical = (string1: string, string2: string) => {
-    return (
-      normalizeString(string1).toLowerCase().trim() ===
-      normalizeString(string2).toLowerCase().trim()
-    );
-  };
-
-  if (identical(llmResponse, normalized)) {
-    console.log('Translation result is identical to input');
-    await saveToCache('-'); // cache no-translate result
-    return new Response('', { status: 200 });
-  }
-
-  if (llmResponse.toLowerCase() === 'already_translated') {
+  if (llmResponse.trim().toUpperCase() === 'NOOP') {
     console.log('Detected language is the same as target language');
     await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });

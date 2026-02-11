@@ -8,6 +8,7 @@ const fixtures = [
   "I shouldn't be translated thecod67Lol",
   'haiiiiii chelle!',
   "내 황홀에 취해, you can't look away",
+  'Yeah relaunching provides completely different data. Things are randomized to ensure you sstay anonymous with each browser launch in Mullvad',
 ] as const;
 type Inputs = (typeof fixtures)[number];
 
@@ -22,7 +23,7 @@ const models: Array<keyof AiModels> = [
   '@cf/qwen/qwen3-30b-a3b-fp8' as keyof AiModels,
 
   // $0.27 per M input tokens, $0.85 per M output tokens
-  '@cf/meta/llama-4-scout-17b-16e-instruct',
+  // '@cf/meta/llama-4-scout-17b-16e-instruct',
 ];
 
 async function runTests(env: Env): Promise<Response> {
@@ -30,35 +31,17 @@ async function runTests(env: Env): Promise<Response> {
     return new Response('Not found', { status: 404 });
   }
 
-  const translations = new Map<
-    Inputs,
-    Record<
-      keyof AiModels,
-      {
-        translated_text: string;
-        target_language: string;
-      }
-    >
-  >();
+  const translations = new Map<Inputs, Record<keyof AiModels, string>>();
 
   const promises: Promise<unknown>[] = [];
 
   for (const fixture of fixtures) {
-    translations.set(
-      fixture,
-      {} as Record<
-        keyof AiModels,
-        {
-          translated_text: string;
-          target_language: string;
-        }
-      >
-    );
-
+    translations.set(fixture, {} as Record<keyof AiModels, string>);
     for (const model of models) {
       const p = (async () => {
         const llmResponse = await translate(fixture, {
           targetLanguage: targetLanguage,
+          similarityThreshold: 0.8,
           model: model,
           env: env,
         });
@@ -68,10 +51,7 @@ async function runTests(env: Env): Promise<Response> {
         }
 
         const current = translations.get(fixture)!;
-        current[model] = {
-          translated_text: llmResponse || '',
-          target_language: targetLanguage,
-        };
+        current[model] = llmResponse;
       })();
       promises.push(p);
     }
@@ -84,16 +64,14 @@ async function runTests(env: Env): Promise<Response> {
     output.push(`Input: ${input}`);
     for (const model of models) {
       const modelResult = translationResult[model];
-      output.push(
-        `Model: ${String(model)}\nTarget Language: ${modelResult.target_language}\nTranslation: ${modelResult.translated_text}\n`
-      );
+      output.push(`Model: ${String(model)}\nTranslation: ${modelResult}\n`);
     }
     output.push('\n');
   }
 
   return new Response(output.join('\n'), {
     status: 200,
-    headers: { 'Content-Type': 'text/plain' },
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   });
 }
 
