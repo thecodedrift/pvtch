@@ -218,6 +218,13 @@ async function handleTranslate(
     return new Response('', { status: 200 });
   }
 
+  // safety net: never output NOOP to the user
+  if (/^\W*NOOP\W*$/i.test(result.translation.trim())) {
+    console.log('Caught escaped NOOP in final output');
+    await saveToCache('-');
+    return new Response('', { status: 200 });
+  }
+
   const output = `ImTyping ${result.translation}`;
 
   await saveToCache(output);

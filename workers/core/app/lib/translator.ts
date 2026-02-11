@@ -194,8 +194,8 @@ export const translate = async (
       noopReason: undefined,
     };
 
-    // if the model explicitly returned NOOP
-    if (llmResponse.trim().toUpperCase() === 'NOOP') {
+    // if the model explicitly returned NOOP (possibly with punctuation like ":NOOP")
+    if (/^\W*NOOP\W*$/i.test(llmResponse.trim())) {
       result.noop = true;
       result.noopReason = 'model_noop';
       return result;
