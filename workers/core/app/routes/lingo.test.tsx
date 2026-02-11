@@ -3,6 +3,8 @@ import { cloudflareEnvironmentContext } from '@/context';
 import { translate } from '@/lib/translator';
 
 const fixtures = [
+  "Don't mind nanopanther, he's got a case of the drifties",
+  'Added Quote 101: "I never interrupt Mommy-.. I mean Cortana" - @saintnoble [Halo: The Master Chief Collection] [11/02/2026]',
   'galing na curlyg5Wow',
   'kumusta na tayo, @ohaiDrifty ? f0x64Marbie',
   "I shouldn't be translated thecod67Lol",
@@ -35,10 +37,7 @@ async function runTests(env: Env): Promise<Response> {
 
   const results = new Map<
     Inputs,
-    Record<
-      keyof AiModels,
-      Awaited<ReturnType<typeof translate>> | undefined
-    >
+    Record<keyof AiModels, Awaited<ReturnType<typeof translate>> | undefined>
   >();
 
   const promises: Promise<unknown>[] = [];

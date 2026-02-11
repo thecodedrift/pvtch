@@ -211,17 +211,19 @@ export const translate = async (
       return result;
     }
 
-    // fallback: similarity check for short messages where language
-    // detection is unreliable, or when detection didn't produce a result
-    const wordCount = input.split(/\s+/).length;
-    if (
-      (!detectedLanguage || wordCount <= 3) &&
-      options.similarityThreshold !== undefined &&
-      similar(normalizeString(llmResponse), input, options.similarityThreshold)
-    ) {
-      result.noop = true;
-      result.noopReason = 'similarity';
-      return result;
+    // similarity check: short messages use a lower threshold (language
+    // detection is unreliable for 1-3 words), longer messages use a higher
+    // threshold to catch near-identical "translations" without blocking
+    // real translations of mixed-language text
+    if (options.similarityThreshold !== undefined) {
+      const wordCount = input.split(/\s+/).length;
+      const threshold =
+        wordCount <= 3 ? options.similarityThreshold : Math.max(options.similarityThreshold, 0.75);
+      if (similar(normalizeString(llmResponse), input, threshold)) {
+        result.noop = true;
+        result.noopReason = 'similarity';
+        return result;
+      }
     }
 
     return result;
