@@ -9,6 +9,8 @@ const fixtures = [
   'haiiiiii chelle!',
   "내 황홀에 취해, you can't look away",
   'Yeah relaunching provides completely different data. Things are randomized to ensure you sstay anonymous with each browser launch in Mullvad',
+  'I should get 2/3rds of that payout, yeah?',
+  'heya kaph',
 ] as const;
 type Inputs = (typeof fixtures)[number];
 
@@ -31,27 +33,34 @@ async function runTests(env: Env): Promise<Response> {
     return new Response('Not found', { status: 404 });
   }
 
-  const translations = new Map<Inputs, Record<keyof AiModels, string>>();
+  const results = new Map<
+    Inputs,
+    Record<
+      keyof AiModels,
+      Awaited<ReturnType<typeof translate>> | undefined
+    >
+  >();
 
   const promises: Promise<unknown>[] = [];
 
   for (const fixture of fixtures) {
-    translations.set(fixture, {} as Record<keyof AiModels, string>);
+    results.set(
+      fixture,
+      {} as Record<
+        keyof AiModels,
+        Awaited<ReturnType<typeof translate>> | undefined
+      >
+    );
     for (const model of models) {
       const p = (async () => {
-        const llmResponse = await translate(fixture, {
+        const result = await translate(fixture, {
           targetLanguage: targetLanguage,
-          similarityThreshold: 0.8,
+          similarityThreshold: 0.5,
           model: model,
           env: env,
         });
 
-        if (!llmResponse) {
-          return;
-        }
-
-        const current = translations.get(fixture)!;
-        current[model] = llmResponse;
+        results.get(fixture)![model] = result;
       })();
       promises.push(p);
     }
@@ -60,11 +69,21 @@ async function runTests(env: Env): Promise<Response> {
   await Promise.allSettled(promises);
 
   const output: string[] = [];
-  for (const [input, translationResult] of translations.entries()) {
+  for (const [input, modelResults] of results.entries()) {
     output.push(`Input: ${input}`);
     for (const model of models) {
-      const modelResult = translationResult[model];
-      output.push(`Model: ${String(model)}\nTranslation: ${modelResult}\n`);
+      const r = modelResults[model];
+      if (!r) {
+        output.push(`Model: ${String(model)}\nResult: ERROR\n`);
+        continue;
+      }
+      output.push(
+        `Model: ${String(model)}\n` +
+          `Detected: ${r.detectedLanguage ?? '(none)'}\n` +
+          `Translation: ${r.translation}\n` +
+          `NOOP: ${r.noop}${r.noopReason ? ` (${r.noopReason})` : ''}\n` +
+          `Raw: ${r.raw}\n`
+      );
     }
     output.push('\n');
   }

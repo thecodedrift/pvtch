@@ -175,12 +175,12 @@ async function handleTranslate(
     return new Response(existing, { status: 200 });
   }
 
-  let llmResponse: string | undefined;
+  let result;
 
   try {
-    llmResponse = await translate(normalized, {
+    result = await translate(normalized, {
       targetLanguage: config.language,
-      similarityThreshold: 0.8,
+      similarityThreshold: 0.5,
       model: CURRENT_MODEL,
       env: env,
     });
@@ -189,28 +189,36 @@ async function handleTranslate(
     return new Response('', { status: 200 });
   }
 
-  if (!llmResponse) {
+  if (!result) {
     console.error('Lingo translate failed');
     return new Response('', { status: 200 });
   }
 
-  console.log('LLM Response:', { input: normalized, output: llmResponse });
+  console.log('LLM Response:', {
+    input: normalized,
+    output: result.translation,
+    detectedLanguage: result.detectedLanguage,
+    noop: result.noop,
+    noopReason: result.noopReason,
+  });
 
-  if (llmResponse.trim().toUpperCase() === 'NOOP') {
-    console.log('Detected language is the same as target language');
+  if (result.noop) {
+    console.log('No translation needed:', result.noopReason);
     await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
   if (
-    llmResponse.replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1').trim() === ''
+    result.translation
+      .replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1')
+      .trim() === ''
   ) {
     console.log('Translation result is empty after removing usernames');
     await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
-  const output = `ImTyping ${llmResponse}`;
+  const output = `ImTyping ${result.translation}`;
 
   await saveToCache(output);
 

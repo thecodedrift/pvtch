@@ -1,9 +1,10 @@
 import pRetry from 'p-retry';
 import { similar } from '@/lib/strings';
 
-const systemPrompt = `You are a translation assistant. Translate user messages into the specified target language.
+const systemPrompt = `You are a translation assistant.
 
-You'll ask for the language and then the text to translate.
+First, identify the language of the input text.
+Then, translate it to the requested target language.
 
 Rules:
 - Preserve @usernames exactly as-is
@@ -11,11 +12,17 @@ Rules:
 - Prefer natural, fluent translations over literal word-for-word
 - Do NOT correct grammar, spelling, or punctuation — only translate
 
-You MUST respond with EXACTLY ONE of:
-1. The translated text only — no commentary, notes, or explanation
-2. The single word NOOP — if the text is already in the target language or needs no translation
+You MUST respond in EXACTLY this format (two lines):
+Line 1: The detected language name (e.g. English, Korean, Tagalog, Spanish)
+Line 2: The translated text OR the single word NOOP if the text is already in the target language
 
-NEVER echo the original text back unchanged. If it does not need translation, you MUST respond NOOP.
+Example — needs translation:
+Korean
+Drunk on my ecstasy, you can't look away
+
+Example — no translation needed:
+English
+NOOP
 /no_think`;
 
 const extractResponse = (response: unknown): string | undefined => {
@@ -122,11 +129,22 @@ type TranslateOptions = {
   env: Env;
 };
 
-export const translate = async (text: string, options: TranslateOptions) => {
+export type TranslateResult = {
+  detectedLanguage: string | undefined;
+  translation: string;
+  raw: string;
+  noop: boolean;
+  noopReason: 'language_match' | 'similarity' | 'model_noop' | undefined;
+};
+
+export const translate = async (
+  text: string,
+  options: TranslateOptions
+): Promise<TranslateResult | undefined> => {
   const input = normalizeString(text);
 
   try {
-    const llmResponse = await pRetry(
+    const rawResponse = await pRetry(
       async () => {
         const response = (await options.env.AI.run(
           options.model ?? '@cf/qwen/qwen3-30b-a3b-fp8',
@@ -151,15 +169,62 @@ export const translate = async (text: string, options: TranslateOptions) => {
       }
     );
 
+    if (!rawResponse) {
+      return;
+    }
+
+    // parse two-line format: "DetectedLanguage\nTranslation"
+    const newlineIndex = rawResponse.indexOf('\n');
+    let detectedLanguage: string | undefined;
+    let llmResponse: string;
+
+    if (newlineIndex > 0) {
+      detectedLanguage = rawResponse.slice(0, newlineIndex).trim();
+      llmResponse = rawResponse.slice(newlineIndex + 1).trim();
+    } else {
+      // model didn't follow format — treat entire response as translation
+      llmResponse = rawResponse;
+    }
+
+    const result: TranslateResult = {
+      detectedLanguage,
+      translation: llmResponse,
+      raw: rawResponse,
+      noop: false,
+      noopReason: undefined,
+    };
+
+    // if the model explicitly returned NOOP
+    if (llmResponse.trim().toUpperCase() === 'NOOP') {
+      result.noop = true;
+      result.noopReason = 'model_noop';
+      return result;
+    }
+
+    // if the detected language matches the target, force NOOP
     if (
-      llmResponse &&
+      detectedLanguage &&
+      detectedLanguage.toLowerCase() === options.targetLanguage.toLowerCase()
+    ) {
+      result.noop = true;
+      result.noopReason = 'language_match';
+      return result;
+    }
+
+    // fallback: similarity check for short messages where language
+    // detection is unreliable, or when detection didn't produce a result
+    const wordCount = input.split(/\s+/).length;
+    if (
+      (!detectedLanguage || wordCount <= 3) &&
       options.similarityThreshold !== undefined &&
       similar(normalizeString(llmResponse), input, options.similarityThreshold)
     ) {
-      return 'NOOP';
+      result.noop = true;
+      result.noopReason = 'similarity';
+      return result;
     }
 
-    return llmResponse;
+    return result;
   } catch (error) {
     console.error('Translate error:', error);
     return;
