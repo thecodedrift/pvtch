@@ -36,27 +36,32 @@ const fixtures: Fixture[] = [
     noop: true,
   },
   {
+    // ignoring slang is a no-op
     input: 'haiiiiii chelle!',
     detectedLanguage: 'English',
     noop: true,
   },
   {
+    // blending languages should catch the non-requested language and translate
     input: "내 황홀에 취해, you can't look away",
     detectedLanguage: 'Korean',
     noop: false,
   },
   {
+    // fixing a typo is a no-op
     input:
       'Yeah relaunching provides completely different data. Things are randomized to ensure you sstay anonymous with each browser launch in Mullvad',
     detectedLanguage: 'English',
     noop: true,
   },
   {
+    // expanding contractions is a no-op
     input: 'I should get 2/3rds of that payout, yeah?',
     detectedLanguage: 'English',
     noop: true,
   },
   {
+    // slang on short strings, is a no-op
     input: 'heya kaph',
     detectedLanguage: 'English',
     noop: true,
