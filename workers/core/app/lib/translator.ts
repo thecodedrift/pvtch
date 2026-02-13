@@ -13,7 +13,7 @@ Rules:
 - Do NOT correct grammar, spelling, or punctuation — only translate
 
 You MUST respond in EXACTLY this format (two lines):
-Line 1: The detected language name (e.g. English, Korean, Tagalog, Spanish)
+Line 1: The detected language name (e.g. English, Korean, Tagalog, Spanish, etc)
 Line 2: The translated text OR the single word NOOP if the text is already in the target language
 
 Example — needs translation:
@@ -23,7 +23,7 @@ Drunk on my ecstasy, you can't look away
 Example — no translation needed:
 English
 NOOP
-/no_think`;
+`;
 
 const extractResponse = (response: unknown): string | undefined => {
   if (!response || response === null) {
@@ -155,8 +155,20 @@ export const translate = async (
                 content: systemPrompt,
               },
               {
+                role: 'assistant',
+                content: 'What language am I translating to?',
+              },
+              {
                 role: 'user',
-                content: `Translate to ${options.targetLanguage}:\n${input}`,
+                content: options.targetLanguage,
+              },
+              {
+                role: 'assistant',
+                content: `Okay, I will translate for you. What text should I translate?`,
+              },
+              {
+                role: 'user',
+                content: input,
               },
             ],
           }
@@ -218,7 +230,9 @@ export const translate = async (
     if (options.similarityThreshold !== undefined) {
       const wordCount = input.split(/\s+/).length;
       const threshold =
-        wordCount <= 3 ? options.similarityThreshold : Math.max(options.similarityThreshold, 0.75);
+        wordCount <= 3
+          ? options.similarityThreshold
+          : Math.max(options.similarityThreshold, 0.75);
       if (similar(normalizeString(llmResponse), input, threshold)) {
         result.noop = true;
         result.noopReason = 'similarity';

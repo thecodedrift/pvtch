@@ -2,17 +2,65 @@ import type { Route } from './+types/lingo.test';
 import { cloudflareEnvironmentContext } from '@/context';
 import { translate } from '@/lib/translator';
 
-const fixtures = [
-  "Don't mind nanopanther, he's got a case of the drifties",
-  'Added Quote 101: "I never interrupt Mommy-.. I mean Cortana" - @saintnoble [Halo: The Master Chief Collection] [11/02/2026]',
-  'galing na curlyg5Wow',
-  'kumusta na tayo, @ohaiDrifty ? f0x64Marbie',
-  "I shouldn't be translated thecod67Lol",
-  'haiiiiii chelle!',
-  "내 황홀에 취해, you can't look away",
-  'Yeah relaunching provides completely different data. Things are randomized to ensure you sstay anonymous with each browser launch in Mullvad',
-  'I should get 2/3rds of that payout, yeah?',
-  'heya kaph',
+type Fixture = {
+  input: string;
+  detectedLanguage: string | undefined;
+  noop: boolean;
+};
+
+const fixtures: Fixture[] = [
+  {
+    input: "Don't mind nanopanther, he's got a case of the drifties",
+    detectedLanguage: 'English',
+    noop: true,
+  },
+  {
+    input:
+      'Added Quote 101: "I never interrupt Mommy-.. I mean Cortana" - @saintnoble [Halo: The Master Chief Collection] [11/02/2026]',
+    detectedLanguage: 'English',
+    noop: true,
+  },
+  {
+    input: 'galing na curlyg5Wow',
+    detectedLanguage: 'Tagalog',
+    noop: false,
+  },
+  {
+    input: 'kumusta na tayo, @ohaiDrifty ? f0x64Marbie',
+    detectedLanguage: 'Tagalog',
+    noop: false,
+  },
+  {
+    input: "I shouldn't be translated thecod67Lol",
+    detectedLanguage: 'English',
+    noop: true,
+  },
+  {
+    input: 'haiiiiii chelle!',
+    detectedLanguage: 'English',
+    noop: true,
+  },
+  {
+    input: "내 황홀에 취해, you can't look away",
+    detectedLanguage: 'Korean',
+    noop: false,
+  },
+  {
+    input:
+      'Yeah relaunching provides completely different data. Things are randomized to ensure you sstay anonymous with each browser launch in Mullvad',
+    detectedLanguage: 'English',
+    noop: true,
+  },
+  {
+    input: 'I should get 2/3rds of that payout, yeah?',
+    detectedLanguage: 'English',
+    noop: true,
+  },
+  {
+    input: 'heya kaph',
+    detectedLanguage: 'English',
+    noop: true,
+  },
 ] as const;
 type Inputs = (typeof fixtures)[number];
 
@@ -52,7 +100,7 @@ async function runTests(env: Env): Promise<Response> {
     );
     for (const model of models) {
       const p = (async () => {
-        const result = await translate(fixture, {
+        const result = await translate(fixture.input, {
           targetLanguage: targetLanguage,
           similarityThreshold: 0.5,
           model: model,
@@ -69,20 +117,24 @@ async function runTests(env: Env): Promise<Response> {
 
   const output: string[] = [];
   for (const [input, modelResults] of results.entries()) {
-    output.push(`Input: ${input}`);
+    output.push(`Input: ${input.input}`);
     for (const model of models) {
       const r = modelResults[model];
       if (!r) {
-        output.push(`Model: ${String(model)}\nResult: ERROR\n`);
+        output.push(`Model: ${String(model)}\nResult: ERROR`);
         continue;
       }
-      output.push(
-        `Model: ${String(model)}\n` +
-          `Detected: ${r.detectedLanguage ?? '(none)'}\n` +
-          `Translation: ${r.translation}\n` +
-          `NOOP: ${r.noop}${r.noopReason ? ` (${r.noopReason})` : ''}\n` +
-          `Raw: ${r.raw}\n`
-      );
+      if (input.noop !== r.noop) {
+        output.push(
+          `Model: ${String(model)}\n` +
+            `Expected NOOP: ${input.noop}\n` +
+            `Actual NOOP: ${r.noop}\n` +
+            `Detected Language: ${r.detectedLanguage ?? '(none)'}\n` +
+            `Translation: ${r.translation}\n` +
+            `Raw: ${r.raw}`
+        );
+        continue;
+      }
     }
     output.push('\n');
   }
