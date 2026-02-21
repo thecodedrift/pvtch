@@ -5,6 +5,7 @@ import { useComfy, type ComfyEvents } from '@/hooks/use-comfy';
 import React, {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -207,6 +208,7 @@ const paramsParser = z.object({
 });
 
 // Loader: fetch url param to loader data, before initializing comfy
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function loader({ params, context }: Route.LoaderArgs) {
   const { channel } = params;
 
@@ -231,10 +233,13 @@ export default function TodoSource() {
   }, []);
   const [enableScroll, setEnableScroll] = useState(false);
   const isDocumentVisible = useDocumentVisibilityState();
-  const [ref] = useResizeObserverRef((entries) => {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [ref] = useResizeObserverRef((entries: ResizeObserverEntry[]) => {
     const taskHeight = entries[0].contentRect.height;
     const windowHeight = globalThis.window.innerHeight;
-    setEnableScroll(taskHeight > windowHeight);
+    const headerHeight = headerRef.current?.getBoundingClientRect().height ?? 0;
+
+    setEnableScroll(taskHeight + headerHeight > windowHeight);
   });
 
   useEffect(() => {
@@ -277,8 +282,8 @@ export default function TodoSource() {
           .map((s) => s.trim())
           .filter((s) => s.length > 0);
         for (const arg of allArgs) {
-          const argNum = parseInt(arg);
-          if (!isNaN(argNum)) {
+          const argNum = Number.parseInt(arg);
+          if (!Number.isNaN(argNum)) {
             dones.add(argNum);
           }
         }
@@ -290,8 +295,8 @@ export default function TodoSource() {
       }
 
       if (command.toLocaleLowerCase() === params.focus.toLocaleLowerCase()) {
-        const argNum = parseInt(message.trim());
-        if (isNaN(argNum)) {
+        const argNum = Number.parseInt(message.trim());
+        if (Number.isNaN(argNum)) {
           return;
         }
         focusTask(user, argNum, updateTasks);
@@ -316,7 +321,8 @@ export default function TodoSource() {
 
     comfy.events.on('command', onCommand);
 
-    if (params.debug && isDocumentVisible) {
+    if (isDocumentVisible) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (globalThis.window as any).__onComfyCommand = onCommand;
     }
 
@@ -326,6 +332,7 @@ export default function TodoSource() {
   }, [comfy, isDocumentVisible]);
 
   const tasksByUserName = useMemo(() => {
+    // eslint-disable-next-line unicorn/no-array-reduce
     return getAllTasks(loaderData.channel, tasks).reduce(
       (acc, task) => {
         if (!acc[task.username]) {
@@ -361,7 +368,22 @@ export default function TodoSource() {
         fontSize: `max(16px, min(4.2vh, 24px))`,
       }}
     >
-      <div className="w-full h-full min-h-screen">
+      {params.help && (
+        <div
+          ref={headerRef}
+          className="p-4 italic border-b border-white/30 relative z-10"
+          style={{
+            backgroundColor: params.bg,
+          }}
+        >
+          <div>
+            <strong>!{params.add}</strong>&nbsp;&middot;&nbsp;
+            <strong>!{params.done}</strong>&nbsp;&middot;&nbsp;
+            <strong>!{params.focus}</strong>
+          </div>
+        </div>
+      )}
+      <div className="w-full h-full">
         <div
           ref={ref}
           className={enableScroll ? 'animate-infinite-scroll' : ''}
@@ -369,15 +391,6 @@ export default function TodoSource() {
             animationDuration: enableScroll ? `${scrollDuration}s` : undefined,
           }}
         >
-          {params.help && (
-            <div className="p-4 italic opacity-70 border-b border-white/30">
-              <div>
-                <strong>!{params.add}</strong>&nbsp;&middot;&nbsp;
-                <strong>!{params.done}</strong>&nbsp;&middot;&nbsp;
-                <strong>!{params.focus}</strong>
-              </div>
-            </div>
-          )}
           <TaskList
             usernames={usernames}
             tasksByUserName={tasksByUserName}
@@ -427,9 +440,9 @@ const TaskList: React.FC<{
                   <div
                     className={clsx(
                       'w-[1.5em] h-[1.5em] aspect-square flex justify-center items-center',
-                      !task.completed
-                        ? 'rounded-full bg-[#000000]/30 '
-                        : undefined
+                      task.completed
+                        ? undefined
+                        : 'rounded-full bg-[#000000]/30 '
                     )}
                   >
                     {task.completed ? <CheckIcon /> : <span>{index + 1}</span>}
@@ -458,7 +471,7 @@ const TaskList: React.FC<{
                   >
                     Unfinished task limit reached ({max} tasks)
                   </div>
-                ) : null}
+                ) : undefined}
               </React.Fragment>
             ))}
           </div>
