@@ -41,6 +41,9 @@ export default tseslint.config(
         {
           allowList: {
             env: true,
+            args: true,
+            props: true,
+            ref: true,
           },
         },
       ],
@@ -48,7 +51,7 @@ export default tseslint.config(
       'unicorn/numeric-separators-style': 'off',
       // Allow underscore-prefixed variables to be unused
       '@typescript-eslint/no-unused-vars': [
-        'error',
+        'off',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',

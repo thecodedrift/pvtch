@@ -22,6 +22,7 @@ export default [
     './routes/sources/progress.$token.$name.tsx'
   ),
   route('sources/todo/:channel', './routes/sources/todo.$channel.tsx'),
+  route('sources/1s/:channel', './routes/sources/1s.$channel.tsx'),
 
   // Health check
   route('health', './routes/health.tsx'),
