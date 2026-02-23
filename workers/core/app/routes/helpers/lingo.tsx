@@ -342,7 +342,7 @@ function SetupGuide({ translateUrl }: { translateUrl: string }) {
         </p>
 
         <div className="bg-muted p-3 rounded-md mb-6 font-mono text-sm">
-          [nl] This is translated text from Dutch (nl) to English (en)
+          ImTyping This is translated text from Dutch (nl) to English (en)
         </div>
 
         <Tabs defaultValue="firebot">
@@ -419,7 +419,13 @@ function SetupGuide({ translateUrl }: { translateUrl: string }) {
                 <code className="bg-muted px-1 rounded">
                   $effectOutput[httpResponse]
                 </code>{' '}
-                is not blank
+                is not [Not Set]
+              </p>
+              <p>
+                <strong>
+                  (I know this looks weird. We're checking that we didn't get
+                  back an empty response)
+                </strong>
               </p>
               <img
                 src={firebotConditional}

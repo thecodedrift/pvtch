@@ -11,6 +11,7 @@ export default [
 
   // App pages with shared layout (header, sidebars)
   layout('./components/layout/app-layout.tsx', [
+    route('welcome', './routes/welcome.tsx'),
     route('widgets/progress', './routes/widgets/progress.tsx'),
     route('helpers/lingo', './routes/helpers/lingo.tsx'),
     route('howto/deploy-your-own', './routes/howto/deploy-your-own.tsx'),

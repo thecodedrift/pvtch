@@ -119,10 +119,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       `${tokenDataKeyPrefix}${existing.token}`,
       user.id
     );
+    const appUrl = env.PVTCH_APP_URL || 'http://localhost:5173';
     const redirectResponseWithToken = new Response(undefined, {
       status: 302,
       headers: {
-        Location: env.PVTCH_APP_URL || 'http://localhost:5173/',
+        Location: `${appUrl}/welcome`,
         'Set-Cookie': `pvtch_token=${existing.token}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`,
       },
     });
@@ -147,10 +148,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     user.id
   );
 
+  const newUserAppUrl = env.PVTCH_APP_URL || 'http://localhost:5173';
   const redirectResponseWithToken = new Response(undefined, {
     status: 302,
     headers: {
-      Location: env.PVTCH_APP_URL || 'http://localhost:5173/',
+      Location: `${newUserAppUrl}/welcome`,
       'Set-Cookie': `pvtch_token=${twitchTokenData.token}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`,
     },
   });
