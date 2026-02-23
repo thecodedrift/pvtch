@@ -35,7 +35,7 @@ AI-powered real-time chat translation. Automatically translates foreign language
 PVTCH is fully open source and can be self-hosted on Cloudflare's free tier.
 
 - Documentation: /howto/deploy-your-own
-- Source Code: https://github.com/jakobo/pvtch
+- Source Code: https://github.com/thecodedrift/pvtch
 - License: MIT
 
 ## API Endpoints
@@ -49,7 +49,7 @@ Lingo:
 
 ## Contact
 
-- GitHub Issues: https://github.com/jakobo/pvtch/issues
+- GitHub Issues: https://github.com/thecodedrift/pvtch/issues
 - Donate: https://ko-fi.com/jakobo
 `;
 

@@ -63,7 +63,7 @@ const features = [
     title: 'More Coming Soon',
     description:
       'We are actively building new tools. Have an idea? Open an issue on GitHub!',
-    href: 'https://github.com/jakobo/pvtch/issues',
+    href: 'https://github.com/thecodedrift/pvtch/issues',
     external: true,
   },
 ];
@@ -187,7 +187,7 @@ export default function Index() {
             <div className="flex flex-col gap-4 sm:flex-row">
               <Button size="lg" variant="outline" className="gap-2" asChild>
                 <a
-                  href="https://github.com/jakobo/pvtch"
+                  href="https://github.com/thecodedrift/pvtch"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

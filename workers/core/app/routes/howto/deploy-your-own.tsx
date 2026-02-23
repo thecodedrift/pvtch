@@ -215,7 +215,7 @@ export default function DeployYourOwn() {
           </p>
           <Button variant="outline" className="gap-2" asChild>
             <a
-              href="https://github.com/jakobo/pvtch/fork"
+              href="https://github.com/thecodedrift/pvtch/fork"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -435,7 +435,7 @@ pnpm run deploy`}
         </p>
         <Button variant="outline" className="gap-2" asChild>
           <a
-            href="https://github.com/jakobo/pvtch/issues"
+            href="https://github.com/thecodedrift/pvtch/issues"
             target="_blank"
             rel="noopener noreferrer"
           >

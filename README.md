@@ -34,7 +34,7 @@ You can deploy PVTCH to your own Cloudflare account with minimal configuration.
 
 ```bash
 # Clone the repository
-git clone https://github.com/jakobo/pvtch-api.git
+git clone https://github.com/thecodedrift/pvtch.git
 cd pvtch-api
 
 # Install dependencies

@@ -462,7 +462,7 @@ function SetupGuide({ translateUrl }: { translateUrl: string }) {
               Coming soon. If you'd like to write this guide, please reach out
               on{' '}
               <a
-                href="https://github.com/jakobo/pvtch"
+                href="https://github.com/thecodedrift/pvtch"
                 className="text-primary underline"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -583,7 +583,7 @@ function SetupGuide({ translateUrl }: { translateUrl: string }) {
               Coming soon. If you'd like to write this guide, please reach out
               on{' '}
               <a
-                href="https://github.com/jakobo/pvtch"
+                href="https://github.com/thecodedrift/pvtch"
                 className="text-primary underline"
                 target="_blank"
                 rel="noopener noreferrer"

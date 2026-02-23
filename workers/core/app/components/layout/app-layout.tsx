@@ -35,7 +35,7 @@ const navigation = [
       },
       {
         title: 'GitHub',
-        href: 'https://github.com/jakobo/pvtch',
+        href: 'https://github.com/thecodedrift/pvtch',
         external: true,
       },
       {
@@ -159,7 +159,7 @@ export default function AppLayout() {
           {/* Right side actions */}
           <div className="ml-auto flex items-center gap-2">
             <a
-              href="https://github.com/jakobo/pvtch"
+              href="https://github.com/thecodedrift/pvtch"
               target="_blank"
               rel="noopener noreferrer"
               className="hidden md:block"
