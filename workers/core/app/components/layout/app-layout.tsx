@@ -40,7 +40,7 @@ const navigation = [
       },
       {
         title: 'Donate',
-        href: 'https://ko-fi.com/jakobo',
+        href: 'https://ko-fi.com/theCodeDrift',
         external: true,
       },
     ],

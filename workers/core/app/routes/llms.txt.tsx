@@ -50,7 +50,7 @@ Lingo:
 ## Contact
 
 - GitHub Issues: https://github.com/thecodedrift/pvtch/issues
-- Donate: https://ko-fi.com/jakobo
+- Donate: https://ko-fi.com/theCodeDrift
 `;
 
 export function loader() {
