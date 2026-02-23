@@ -69,7 +69,7 @@ async function handleTranslate(
     return new Response('', { status: 200 });
   }
 
-  if (!normalized.includes(' ') && normalized.length <= 10) {
+  if (!normalized.includes(' ') && normalized.length <= 6) {
     console.log('Short single word message, skipping', {
       user: userTrimmed,
       normalized,
