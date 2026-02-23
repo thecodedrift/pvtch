@@ -2,12 +2,9 @@ import type { Route } from './+types/lingo.translate.$token';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
-import MurmurHash3 from 'imurmurhash';
 import { normalizeString, translate } from '@/lib/translator';
 import { LINGO_KEY, type LingoConfig } from '@/lib/constants/lingo';
 import { knownBots } from '@/lib/known-bots';
-
-const CACHE_TIME = 60 * 60 * 24 * 3; // 3 days
 
 // qwen 30b isn't in cf types but is supported
 const CURRENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8' as keyof AiModels;
@@ -72,8 +69,8 @@ async function handleTranslate(
     return new Response('', { status: 200 });
   }
 
-  if (!normalized.includes(' ')) {
-    console.log('Single word message, skipping', {
+  if (!normalized.includes(' ') && normalized.length <= 10) {
+    console.log('Short single word message, skipping', {
       user: userTrimmed,
       normalized,
     });
@@ -132,49 +129,6 @@ async function handleTranslate(
 
   console.log('Lingo translate config:', config);
 
-  const cacheKey = new MurmurHash3(
-    normalized.toLowerCase() + '|' + config.language + '|' + CURRENT_MODEL
-  )
-    .result()
-    .toString(16);
-
-  const saveToCache = async (cacheValue: string) => {
-    if (env.DISABLE_CACHE) {
-      return;
-    }
-
-    try {
-      await env.PVTCH_TRANSLATIONS.put(cacheKey, cacheValue, {
-        expirationTtl: CACHE_TIME,
-      });
-      console.log('Saved translation to cache', {
-        cacheKey,
-        translatedText: cacheValue,
-      });
-    } catch (error) {
-      console.error('Failed to save translation to cache', {
-        cacheKey,
-        translatedText: cacheValue,
-        error: error,
-      });
-    }
-  };
-
-  const existing = await env.PVTCH_TRANSLATIONS.get(cacheKey);
-  if (existing) {
-    console.log('Found translation in cache', {
-      cacheKey,
-      translatedText: existing,
-    });
-
-    if (existing === '-') {
-      // cached no-translate result
-      return new Response('', { status: 200 });
-    }
-
-    return new Response(existing, { status: 200 });
-  }
-
   let result;
 
   try {
@@ -204,7 +158,6 @@ async function handleTranslate(
 
   if (result.noop) {
     console.log('No translation needed:', result.noopReason);
-    await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
@@ -214,20 +167,16 @@ async function handleTranslate(
       .trim() === ''
   ) {
     console.log('Translation result is empty after removing usernames');
-    await saveToCache('-'); // cache no-translate result
     return new Response('', { status: 200 });
   }
 
-  // safety net: never output NOOP to the user
-  if (/^\W*NOOP\W*$/i.test(result.translation.trim())) {
+  // safety net: never output NOOP to the user (e.g. "Line2: NOOP")
+  if (/noop/i.test(result.translation)) {
     console.log('Caught escaped NOOP in final output');
-    await saveToCache('-');
     return new Response('', { status: 200 });
   }
 
   const output = `ImTyping ${result.translation}`;
-
-  await saveToCache(output);
 
   return new Response(output, {
     status: 200,

@@ -198,6 +198,13 @@ export const translate = async (
       llmResponse = rawResponse;
     }
 
+    // strip "line 1:" / "line 2:" prefixes the model sometimes adds
+    const linePrefix = /^line\s*\d+\s*:\s*/i;
+    if (detectedLanguage) {
+      detectedLanguage = detectedLanguage.replace(linePrefix, '').trim();
+    }
+    llmResponse = llmResponse.replace(linePrefix, '').trim();
+
     const result: TranslateResult = {
       detectedLanguage,
       translation: llmResponse,
@@ -206,8 +213,8 @@ export const translate = async (
       noopReason: undefined,
     };
 
-    // if the model explicitly returned NOOP (possibly with punctuation like ":NOOP")
-    if (/^\W*NOOP\W*$/i.test(llmResponse.trim())) {
+    // if the model returned NOOP anywhere in the response (e.g. "Line2: NOOP")
+    if (/noop/i.test(llmResponse)) {
       result.noop = true;
       result.noopReason = 'model_noop';
       return result;

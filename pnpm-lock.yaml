@@ -86,9 +86,6 @@ importers:
       eventemitter3:
         specifier: ^5.0.1
         version: 5.0.1
-      imurmurhash:
-        specifier: ^0.1.4
-        version: 0.1.4
       isbot:
         specifier: ^5.1.31
         version: 5.1.32
@@ -150,9 +147,6 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.1.14
         version: 4.1.18(vite@7.3.0(@types/node@24.9.1)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))
-      '@types/imurmurhash':
-        specifier: ^0.1.4
-        version: 0.1.4
       '@types/js-cookie':
         specifier: ^3.0.6
         version: 3.0.6
@@ -1722,9 +1716,6 @@ packages:
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
-
-  '@types/imurmurhash@0.1.4':
-    resolution: {integrity: sha512-Zo/QlTiAvOP3pd9nuPOw33k0l/QssLOBrriShWzUE4qhIZByIF3rCoyF8ZTxdyFTUM2mYljYLqMUeLvA3NJUmQ==}
 
   '@types/js-cookie@3.0.6':
     resolution: {integrity: sha512-wkw9yd1kEXOPnvEeEV1Go1MmxtBJL0RR79aOTAApecWFVu7w0NNXNqhcWgvw2YgZDYadliXkl14pa3WXw5jlCQ==}
@@ -4580,8 +4571,6 @@ snapshots:
   '@tanstack/store@0.8.0': {}
 
   '@types/estree@1.0.8': {}
-
-  '@types/imurmurhash@0.1.4': {}
 
   '@types/js-cookie@3.0.6': {}
 
