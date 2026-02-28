@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(tree:*)",
+      "Bash(npm install:*)",
+      "Bash(cat:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add tabs:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm run typecheck:*)",
+      "Bash(timeout 10 pnpm run dev:*)"
+    ]
+  }
+}

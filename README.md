@@ -2,14 +2,11 @@
 
 Simple streamer tools for Twitch content creators.
 
-PVTCH provides lightweight, embeddable widgets and utilities for streamers:
-
-- **Progress Tracking** - Display progress bars in OBS for goals, challenges, or achievements
-- **Lingo (AI Translation)** - Real-time chat translation powered by Cloudflare
+PVTCH provides lightweight, embeddable widgets and utilities for streamers.
 
 Built for simplicity - no complex setup, no databases to manage, just connect your Twitch account and start using.
 
-Also deployable to your own Cloudflare account for full control.
+Built for private clouds - also must be deployable to your own Cloudflare account for full control.
 
 ## Design
 
@@ -19,8 +16,6 @@ PVTCH runs entirely on [Cloudflare Workers](https://workers.cloudflare.com/), ma
 - **Durable Objects** - Persistent state with SQLite storage
 - **KV** - Fast key-value storage for caching and tokens
 - **Cloudflare AI** - Powers the Lingo translation feature
-
-You can deploy PVTCH to your own Cloudflare account with minimal configuration.
 
 ## Getting Started
 
@@ -60,3 +55,17 @@ Create the following secrets in your Cloudflare dashboard or via `wrangler secre
 cd workers/core
 pnpm run deploy
 ```
+
+# Use of AI In This Project
+
+## Services
+
+PVTCH uses Cloudflare's AI services to power the Lingo translation feature, which provides real-time chat translation for Twitch streamers. This allows streamers to engage with a global audience by translating chat messages into their preferred language. The AI handles the translation process, and is subject to all of the limitations and ethical considerations associated with AI, including potential inaccuracies in translation and the need for responsible use of AI-generated content.
+
+## Codebase
+
+This codebase is partially built with coding agents, prioritizing documenting the design and architecture of the project. We have a strict "contributors own the commit" policy. This means if you submit a PR, it is assumed to be from you, not from an AI. Repeated low quality contributions may result in a ban from contributing to the project. We encourage all contributors to ensure their contributions are of high quality and adhere to the project's standards.
+
+To assist in AI assisted contributions, this project leverages OpenSpec https://github.com/Fission-AI/OpenSpec to help agentic systems.
+
+It is **REQUIRED** to use OpenSpec for any AI assisted contributions to this project. This allows us to maintain a clear record of which contributions were AI assisted and ensures that all contributions meet the project's standards for quality and consistency. For human-contributions, we will extend your PR to include OpenSpec items so that we have a historical record of the contribution and its context.

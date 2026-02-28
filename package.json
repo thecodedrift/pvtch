@@ -15,6 +15,11 @@
   },
   "packageManager": "pnpm@10.12.4",
   "private": true,
-  "scripts": {},
-  "type": "module"
+  "scripts": {
+    "openspec": "openspec"
+  },
+  "type": "module",
+  "dependencies": {
+    "@fission-ai/openspec": "^1.2.0"
+  }
 }

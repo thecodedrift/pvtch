@@ -288,6 +288,12 @@ export default function TodoSource() {
 
   const voteWrapper = useEffectEvent(vote);
 
+  const resetVotes = useCallback(() => {
+    setVotes(new Map());
+    setVoters(new Map());
+    setStartTime(0);
+  }, []);
+
   useEffect(() => {
     if (!comfy) return;
 
@@ -318,6 +324,7 @@ export default function TodoSource() {
             duration: duration && duration > 0 ? duration : undefined,
             cooldown: cooldown && cooldown > 0 ? cooldown : undefined,
           });
+          resetVotes();
           break;
         }
         case '1s vote': {
@@ -328,6 +335,7 @@ export default function TodoSource() {
           setOverrides({
             repeat: mode === 'many' ? true : mode === 'one' ? false : undefined,
           });
+          resetVotes();
           break;
         }
         case '1s list': {
@@ -343,12 +351,11 @@ export default function TodoSource() {
           setOverrides({
             choices: list.length > 0 ? list : undefined,
           });
+          resetVotes();
           break;
         }
         case '1s reset': {
-          setVotes(new Map());
-          setVoters(new Map());
-          setStartTime(0);
+          resetVotes();
           break;
         }
         default: {
@@ -375,7 +382,7 @@ export default function TodoSource() {
       comfy.events.off('command', onCommand);
       comfy.events.off('chat', onChat);
     };
-  }, [comfy, voteWrapper, setVoters, setStartTime]);
+  }, [comfy, voteWrapper, setVoters, setStartTime, resetVotes]);
 
   useEffect(() => {
     if (isDocumentVisible !== 'visible' || !comfy) {

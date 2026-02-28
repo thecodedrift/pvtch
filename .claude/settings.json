@@ -1,0 +1,50 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "additionalDirectories": ["openspec/*"],
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(date:*)",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git bisect:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git tag:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(pnpm openspec:*)",
+      "Bash(pnpm:*)",
+      "Bash(sort:*)",
+      "Bash(tail:*)",
+      "Bash(tr:*)",
+      "Bash(wc:*)",
+      "Bash(xargs sed:*)",
+      "Skill(commit)",
+      "Skill(commit:*)",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__linear__*"
+    ],
+    "deny": ["Bash(npx:*)"]
+  },
+  "read": {
+    "deny": [
+      "**/*.key",
+      "**/*.pem",
+      "**/.aws/**",
+      "**/.env*",
+      "**/.secrets*",
+      "**/.ssh/**",
+      "**/credentials/**",
+      "**/secrets/**"
+    ]
+  }
+}

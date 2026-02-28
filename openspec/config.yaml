@@ -1,0 +1,9 @@
+schema: spec-driven
+
+context: |
+  PVTCH is a lightweight, open-source streamer toolkit built on Cloudflare Workers.
+  Tech stack: TypeScript, React 19, React Router 7 (full-stack SSR), Cloudflare Workers,
+  Durable Objects (SQLite), KV, Cloudflare AI, TailwindCSS 4, Radix UI, nanostores.
+  Build: Vite + pnpm workspaces monorepo.
+  Domain: Twitch streaming tools (OBS overlays, chat integrations, AI translation).
+  The main app lives in workers/core/.
