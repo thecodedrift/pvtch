@@ -13,6 +13,7 @@ export default [
   layout('./components/layout/app-layout.tsx', [
     route('welcome', './routes/welcome.tsx'),
     route('widgets/progress', './routes/widgets/progress.tsx'),
+    route('widgets/1s', './routes/widgets/1s.tsx'),
     route('helpers/lingo', './routes/helpers/lingo.tsx'),
     route('howto/deploy-your-own', './routes/howto/deploy-your-own.tsx'),
   ]),
