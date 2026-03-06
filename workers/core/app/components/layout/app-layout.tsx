@@ -20,7 +20,10 @@ import { cn } from '@/lib/utils';
 const navigation = [
   {
     title: 'Widgets',
-    items: [{ title: 'Progress Bar', href: '/widgets/progress' }],
+    items: [
+      { title: 'Quick Poll', href: '/widgets/1s' },
+      { title: 'Progress Bar', href: '/widgets/progress' },
+    ],
   },
   {
     title: 'Helpers',
@@ -92,7 +95,7 @@ function NavSection({
                     'block rounded-md px-3 py-2 text-sm',
                     currentPath === item.href
                       ? 'bg-accent text-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                 >
                   {item.title}
@@ -188,7 +191,7 @@ export default function AppLayout() {
         <aside
           className={cn(
             'fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] w-64 shrink-0 border-r border-border bg-background transition-transform md:sticky md:translate-x-0',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
           <nav className="h-full overflow-y-auto p-4">
