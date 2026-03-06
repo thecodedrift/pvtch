@@ -11,9 +11,9 @@ export type Options = {
 export const defaults: Options = {
   text: undefined,
   prefix: undefined,
-  bg: '000000',
-  fg1: 'ffffff',
-  fg2: 'ffffff',
+  bg: 'rgba(0, 0, 0, 1)',
+  fg1: 'rgba(255, 255, 255, 1)',
+  fg2: 'rgba(255, 255, 255, 1)',
   goal: 100,
   decimal: 0,
 };

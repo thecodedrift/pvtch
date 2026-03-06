@@ -12,10 +12,16 @@ export type TokenData = string; // Twitch user ID
 
 export const tokenDataKeyPrefix = 'token-data-';
 
+export const DEV_TOKEN = 'dev';
+
 export const isValidToken = async (
   token: string | undefined,
   environment: Env
 ) => {
+  if (environment.DEV_TWITCH_USER_ID) {
+    return environment.DEV_TWITCH_USER_ID;
+  }
+
   if (!token) return;
 
   const tokenKey = `${tokenDataKeyPrefix}${token}`;

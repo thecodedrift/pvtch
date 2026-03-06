@@ -7,6 +7,7 @@ import type { Route } from './+types/1s';
 import { cloudflareEnvironmentContext } from '@/context';
 import {
   isValidToken,
+  DEV_TOKEN,
   twitchDataKeyPrefix,
   type TwitchUserData,
 } from '@/lib/twitch-data';
@@ -108,7 +109,8 @@ export function meta(_args: Route.MetaArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies['pvtch_token'];
+  const token =
+    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
 
   if (!token) {
     return data({ authenticated: false as const, channel: '' });
@@ -126,7 +128,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return data({
     authenticated: true as const,
-    channel: userData?.login ?? '',
+    channel: userData?.login ?? env.DEV_TWITCH_USER_ID ?? '',
   });
 }
 

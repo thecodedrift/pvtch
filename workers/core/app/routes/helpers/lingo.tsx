@@ -6,7 +6,7 @@ import { Copy } from 'lucide-react';
 import type { Route } from './+types/lingo';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
-import { isValidToken } from '@/lib/twitch-data';
+import { isValidToken, DEV_TOKEN } from '@/lib/twitch-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
@@ -98,7 +98,8 @@ export function meta(_args: Route.MetaArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies['pvtch_token'];
+  const token =
+    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
 
   // If no token, return unauthenticated state
   if (!token) {
@@ -131,7 +132,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies['pvtch_token'];
+  const token =
+    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
 
   if (!token) {
     return data(

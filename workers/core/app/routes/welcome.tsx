@@ -14,7 +14,7 @@ function parseCookies(cookieHeader: string | null): Record<string, string> {
     cookieHeader.split(';').map((c) => {
       const [key, ...val] = c.trim().split('=');
       return [key, val.join('=')];
-    }),
+    })
   );
 }
 
@@ -40,12 +40,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const userData = await env.PVTCH_ACCOUNTS.get<TwitchUserData>(
     `${twitchDataKeyPrefix}${userid}`,
-    'json',
+    'json'
   );
 
   return data({
     authenticated: true as const,
-    displayName: userData?.display_name ?? '',
+    displayName: userData?.display_name ?? env.DEV_TWITCH_USER_ID ?? '',
   });
 }
 

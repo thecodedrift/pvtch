@@ -7,3 +7,7 @@ TWITCH_SECRET=your_twitch_client_secret_here
 # Optional: Override for local development
 # TWITCH_REDIRECT_URI=http://localhost:8787/auth/callback
 # PVTCH_APP_URL=http://localhost:8787
+
+# Optional: Skip Twitch login entirely in dev by impersonating a user ID
+# When set, all auth checks pass and this value is used as the Twitch user ID
+# DEV_TWITCH_USER_ID=123456789

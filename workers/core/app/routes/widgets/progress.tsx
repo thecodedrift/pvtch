@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useFetcher, useLoaderData, data } from 'react-router';
 import { useForm, useStore } from '@tanstack/react-form';
 import { toast } from 'sonner';
+import { RgbaStringColorPicker } from 'react-colorful';
 import type { Route } from './+types/progress';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
-import { isValidToken } from '@/lib/twitch-data';
+import { isValidToken, DEV_TOKEN } from '@/lib/twitch-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
@@ -25,10 +26,60 @@ function parseCookies(cookieHeader: string | null): Record<string, string> {
   );
 }
 
+function ColorPicker({
+  color,
+  onChange,
+  label,
+}: {
+  color: string;
+  onChange: (color: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 rounded-md border px-3 py-2 not-prose"
+      >
+        <div
+          className="h-5 w-5 rounded-sm border"
+          style={{ backgroundColor: color }}
+        />
+        <span className="text-sm">{label}</span>
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-2 rounded-lg border bg-background p-3 shadow-lg not-prose">
+          <RgbaStringColorPicker color={color} onChange={onChange} />
+          <Input
+            className="mt-2 font-mono text-xs"
+            value={color}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const defaults = {
-  fg1: '#ffffff',
-  fg2: '#ffffff',
-  bg: '#000000',
+  fg1: 'rgba(255, 255, 255, 1)',
+  fg2: 'rgba(255, 255, 255, 1)',
+  bg: 'rgba(0, 0, 0, 1)',
   goal: 100,
   text: '',
   decimal: 0,
@@ -68,7 +119,10 @@ export function meta(_args: Route.MetaArgs) {
       content:
         'Create customizable progress bars for your Twitch stream. Track sub goals, donations, or any metric with real-time OBS browser source overlays. Free and open source.',
     },
-    { property: 'og:title', content: 'Progress Bar Widget for OBS & Twitch Streams' },
+    {
+      property: 'og:title',
+      content: 'Progress Bar Widget for OBS & Twitch Streams',
+    },
     {
       property: 'og:description',
       content:
@@ -81,7 +135,8 @@ export function meta(_args: Route.MetaArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies['pvtch_token'];
+  const token =
+    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
 
   // If no token, return unauthenticated state
   if (!token) {
@@ -118,7 +173,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies['pvtch_token'];
+  const token =
+    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
 
   if (!token) {
     return data(
@@ -200,8 +256,8 @@ export default function WidgetsProgress() {
   const updateUrl = `https://www.pvtch.com/progress/${loaderData.token}/${currentId}/set?value=UPDATEME`;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Progress Bar</h1>
+    <div className="prose dark:prose-invert max-w-none">
+      <h1>Progress Bar</h1>
 
       <form
         onSubmit={(e) => {
@@ -211,7 +267,7 @@ export default function WidgetsProgress() {
         }}
       >
         {/* ID Selector */}
-        <div className="flex flex-row gap-2 pb-4">
+        <div className="flex flex-row gap-2 pb-4 not-prose">
           <Input
             value={changingId ? tempId : currentId}
             name="id-selector"
@@ -266,7 +322,7 @@ export default function WidgetsProgress() {
         </div>
 
         {/* Live Preview (sticky) */}
-        <div className="sticky top-16 z-10 bg-background py-2">
+        <div className="sticky top-16 z-10 bg-background py-2 not-prose">
           <div className="relative h-12 w-full rounded overflow-hidden">
             <BasicBar
               bg={formState.bg}
@@ -285,169 +341,137 @@ export default function WidgetsProgress() {
         {/* Form Fields */}
         <div
           className={cn(
-            'flex flex-col gap-6 pt-4',
+            'flex flex-col gap-6 pt-4 not-prose',
             changingId ? 'pointer-events-none opacity-50' : ''
           )}
         >
-          <form.Field
-            name="bg"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="bg">Bar Background</FieldLabel>
-                <Input
-                  id="bg"
-                  autoComplete="off"
-                  placeholder="#000000"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  readOnly={changingId}
+          <div className="flex flex-wrap gap-4">
+            <form.Field
+              name="bg"
+              children={(field) => (
+                <ColorPicker
+                  color={field.state.value}
+                  onChange={(c) => field.handleChange(c)}
+                  label="Background"
                 />
-                <FieldDescription>
-                  The color for the uncompleted part of the bar
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="fg1"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="fg1">Filled Background 1</FieldLabel>
-                <Input
-                  id="fg1"
-                  autoComplete="off"
-                  placeholder="#990000"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  readOnly={changingId}
+              )}
+            />
+            <form.Field
+              name="fg1"
+              children={(field) => (
+                <ColorPicker
+                  color={field.state.value}
+                  onChange={(c) => field.handleChange(c)}
+                  label="Fill 1"
                 />
-                <FieldDescription>
-                  The color for the completed part of the bar
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="fg2"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="fg2">Filled Background 2</FieldLabel>
-                <Input
-                  id="fg2"
-                  autoComplete="off"
-                  placeholder="#aa0000"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  readOnly={changingId}
+              )}
+            />
+            <form.Field
+              name="fg2"
+              children={(field) => (
+                <ColorPicker
+                  color={field.state.value}
+                  onChange={(c) => field.handleChange(c)}
+                  label="Fill 2"
                 />
-                <FieldDescription>
-                  The second color for the completed bar, make it slightly
-                  brighter for a cool gradient effect
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="goal"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="goal">Goal Amount</FieldLabel>
-                <Input
-                  id="goal"
-                  autoComplete="off"
-                  placeholder="100"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) =>
-                    field.handleChange(parseInt(e.target.value, 10) || 0)
-                  }
-                  readOnly={changingId}
-                />
-                <FieldDescription>
-                  Your arbitrary goal amount. You got this!
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="text"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="text">Goal Text</FieldLabel>
-                <Input
-                  id="text"
-                  autoComplete="off"
-                  placeholder="My Goal Name"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  readOnly={changingId}
-                />
-                <FieldDescription>
-                  Name your goal, or leave it blank if you'd rather do it in OBS
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="prefix"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="prefix">Prefix</FieldLabel>
-                <Input
-                  id="prefix"
-                  autoComplete="off"
-                  placeholder=""
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  readOnly={changingId}
-                />
-                <FieldDescription>
-                  Add a prefix before Progress and Goal numbers, e.g. "$" or
-                  "Level "
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="decimal"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="decimal">Round Progress Places</FieldLabel>
-                <Input
-                  id="decimal"
-                  autoComplete="off"
-                  placeholder="0"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) =>
-                    field.handleChange(parseInt(e.target.value, 10) || 0)
-                  }
-                  readOnly={changingId}
-                />
-                <FieldDescription>
-                  Round the progress number to this many decimal places, great
-                  if you're doing a bunch of math in your bot
-                </FieldDescription>
-              </Field>
-            )}
-          />
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <form.Field
+              name="goal"
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor="goal">Goal Amount</FieldLabel>
+                  <Input
+                    id="goal"
+                    type="number"
+                    autoComplete="off"
+                    placeholder="100"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) =>
+                      field.handleChange(parseInt(e.target.value, 10) || 0)
+                    }
+                    readOnly={changingId}
+                  />
+                  <FieldDescription>
+                    Your arbitrary goal amount
+                  </FieldDescription>
+                </Field>
+              )}
+            />
+            <form.Field
+              name="decimal"
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor="decimal">Decimal Places</FieldLabel>
+                  <Input
+                    id="decimal"
+                    type="number"
+                    autoComplete="off"
+                    placeholder="0"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) =>
+                      field.handleChange(parseInt(e.target.value, 10) || 0)
+                    }
+                    readOnly={changingId}
+                  />
+                  <FieldDescription>
+                    Round progress to N places
+                  </FieldDescription>
+                </Field>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <form.Field
+              name="text"
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor="text">Goal Text</FieldLabel>
+                  <Input
+                    id="text"
+                    autoComplete="off"
+                    placeholder="My Goal Name"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    readOnly={changingId}
+                  />
+                  <FieldDescription>Name your goal</FieldDescription>
+                </Field>
+              )}
+            />
+            <form.Field
+              name="prefix"
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor="prefix">Prefix</FieldLabel>
+                  <Input
+                    id="prefix"
+                    autoComplete="off"
+                    placeholder="$"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    readOnly={changingId}
+                  />
+                  <FieldDescription>e.g. "$" or "Level "</FieldDescription>
+                </Field>
+              )}
+            />
+          </div>
         </div>
       </form>
 
       {/* URLs Section */}
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 space-y-4 not-prose">
         <Field>
           <FieldLabel>OBS Browser Source URL</FieldLabel>
           <Input type="password" readOnly value={progressUrl} />
@@ -456,6 +480,49 @@ export default function WidgetsProgress() {
           <FieldLabel>Update API URL</FieldLabel>
           <Input type="password" readOnly value={updateUrl} />
         </Field>
+      </div>
+
+      {/* How to Use Guide */}
+      <div className="mt-10 space-y-6">
+        <h2>How to Use</h2>
+
+        <div>
+          <h3>1. Add to OBS</h3>
+          <p className="text-muted-foreground">
+            In OBS, add a <strong>Browser Source</strong> and paste the OBS
+            Browser Source URL above. The bar automatically scales its text up
+            or down to fit your source size, so pick whatever dimensions work
+            for your layout.
+          </p>
+        </div>
+
+        <div>
+          <h3>2. Update Progress</h3>
+          <p className="text-muted-foreground">
+            Use the Update API URL to set the current progress value. Replace{' '}
+            <code>UPDATEME</code> with a number and hit the URL from your bot,
+            StreamerBot, MixItUp, Firebot, or any tool that can make HTTP
+            requests. Think of this widget as a progress{' '}
+            <strong>displayer</strong> &mdash; keep the value in whatever system
+            makes sense for you.
+          </p>
+        </div>
+
+        <div>
+          <h3>3. Tips</h3>
+          <ul className="text-muted-foreground list-disc ml-4 space-y-1">
+            <li>
+              Use two slightly different fill colors for a gradient effect on
+              the completed portion of the bar
+            </li>
+            <li>
+              To resize, set new height and width in the browser source
+              properties &mdash; dragging and resizing inside OBS stretches
+              pixels like an image, resulting in fuzzy text. Change the
+              height/width and you&apos;ll get a beautiful widget every time.
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );
