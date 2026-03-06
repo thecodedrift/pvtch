@@ -8,7 +8,7 @@ export const useNoTheme = () => {
     if (isDocumentVisible) {
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.remove('light');
-      // document.body.style.backgroundColor = '#222222';
+      document.body.style.backgroundColor = 'transparent';
     }
   });
 };

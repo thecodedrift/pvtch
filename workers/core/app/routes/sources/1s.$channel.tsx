@@ -13,7 +13,8 @@ import { useSearchParams } from 'react-router';
 import z from 'zod';
 import { useNoTheme } from '@/hooks/use-no-theme';
 import { useDocumentVisibilityState, useIntervalWhen } from 'rooks';
-import { Lock, Timer } from 'lucide-react';
+import { Lock, Play, Timer } from 'lucide-react';
+import EE from 'eventemitter3';
 
 /*
 TODOs
@@ -39,6 +40,7 @@ const DEFAULTS = {
   repeat: false,
   choices: [],
   callback: undefined,
+  demo: false,
 } as const;
 
 const parameterParser = z
@@ -101,6 +103,11 @@ const parameterParser = z
           return;
         }
       }),
+    demo: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((input) => input.toLocaleLowerCase() === 'true'),
   })
   .optional()
   .default({
@@ -182,8 +189,9 @@ export default function TodoSource() {
   useNoTheme();
   const isDocumentVisible = useDocumentVisibilityState();
   const loaderData = useLoaderData<typeof loader>();
-  const comfy = useComfy(loaderData.channel);
   const [rawParameters] = useSearchParams();
+  const isDemo = rawParameters.get('demo')?.toLowerCase() === 'true';
+  const comfy = useComfy(isDemo ? false : loaderData.channel);
   const [votes, setVotes] = useState<Map<string, number>>(new Map());
   const [voters, setVoters] = useState<Map<string, string>>(new Map()); // username -> option
   const [startTime, setStartTime] = useState<number>(0);
@@ -205,10 +213,13 @@ export default function TodoSource() {
       }
     }
 
-    console.log('Parameters', result);
+    if (isDemo) {
+      result.duration = 10;
+      result.cooldown = 5;
+    }
 
     return result;
-  }, [overrides]);
+  }, [overrides, isDemo]);
 
   useIntervalWhen(
     () => {
@@ -240,8 +251,6 @@ export default function TodoSource() {
 
     return 'ready';
   }, [now, startTime, parameters]);
-
-  // console.log(parameters);
 
   const vote = useCallback(
     (name: string, option: string) => {
@@ -294,18 +303,70 @@ export default function TodoSource() {
     setStartTime(0);
   }, []);
 
-  useEffect(() => {
-    if (!comfy) return;
+  // Standalone event emitter for demo mode (same event-driven path as comfy)
+  const demoEvents = useRef(new EE<ComfyEvents>());
+  const events = comfy?.events ?? demoEvents.current;
 
+  const [demoRunning, setDemoRunning] = useState(false);
+  const runDemo = useCallback(() => {
+    if (demoRunning) return;
+    setDemoRunning(true);
+    resetVotes();
+
+    const ee = demoEvents.current;
+    const c = parameters.choices;
+    const opt1 = c.length > 0 ? c[0] : '1';
+    const opt2 = c.length > 1 ? c[1] : '2';
+    const opt3 = c.length > 2 ? c[2] : '3';
+    const opt4 = c.length > 3 ? c[3] : '4';
+
+    const run = async () => {
+      // Trickle in votes with lead changes so bars swap positions
+      // opt2 takes early lead, opt4 enters
+      ee.emit('chat', 'DemoUser1', opt2, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser2', opt2, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser3', opt4, nobody, false, fakeflags);
+      await sleep(600);
+      // opt1 catches up, opt3 enters
+      ee.emit('chat', 'DemoUser4', opt1, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser5', opt3, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser6', opt4, nobody, false, fakeflags);
+      await sleep(800);
+      // opt1 takes the lead
+      ee.emit('chat', 'DemoUser7', opt1, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser8', opt1, nobody, false, fakeflags);
+      await sleep(600);
+      // opt3 surges, opt2 gets another
+      ee.emit('chat', 'DemoUser9', opt3, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser10', opt3, nobody, false, fakeflags);
+      ee.emit('chat', 'DemoUser11', opt2, nobody, false, fakeflags);
+      await sleep(700);
+      // opt3 takes the lead at the end
+      ee.emit('chat', 'DemoUser12', opt3, nobody, false, fakeflags);
+    };
+
+    run().catch(console.error);
+  }, [demoRunning, resetVotes, parameters.choices]);
+
+  // Reset demo state when the voting cycle completes
+  const prevVotingState = useRef(votingState);
+  useEffect(() => {
+    if (isDemo && demoRunning && prevVotingState.current === 'locked' && votingState === 'ready') {
+      resetVotes();
+      setDemoRunning(false);
+    }
+    prevVotingState.current = votingState;
+  }, [votingState, isDemo, demoRunning, resetVotes]);
+
+  useEffect(() => {
     const onCommand: ComfyEvents['command'] = (
-      user,
+      _user,
       command,
       message,
       flags,
-      extra
+      _extra
     ) => {
       if (!flags.broadcaster && !flags.mod) {
-        console.log('ignored', flags);
         return;
       }
 
@@ -359,33 +420,30 @@ export default function TodoSource() {
           break;
         }
         default: {
-          console.log('Unknown command', {
-            user,
+          console.error('Unknown command', {
             command,
             message,
-            flags,
-            extra,
           });
         }
       }
     };
 
-    const onChat: ComfyEvents['chat'] = (user, message, flags, extra) => {
+    const onChat: ComfyEvents['chat'] = (user, message, _flags, _extra) => {
       const firstWord = message.split(/ /)[0].trim().toLocaleLowerCase();
       voteWrapper(user, firstWord);
     };
 
-    comfy.events.on('command', onCommand);
-    comfy.events.on('chat', onChat);
+    events.on('command', onCommand);
+    events.on('chat', onChat);
 
     return () => {
-      comfy.events.off('command', onCommand);
-      comfy.events.off('chat', onChat);
+      events.off('command', onCommand);
+      events.off('chat', onChat);
     };
-  }, [comfy, voteWrapper, setVoters, setStartTime, resetVotes]);
+  }, [events, voteWrapper, setVoters, setStartTime, resetVotes]);
 
   useEffect(() => {
-    if (isDocumentVisible !== 'visible' || !comfy) {
+    if (isDocumentVisible !== 'visible') {
       return;
     }
 
@@ -395,7 +453,7 @@ export default function TodoSource() {
     ) => {
       if (args.length > 0) {
         // @ts-expect-error very intentional ignore. used to force tests
-        comfy.events.emit(args[0] as string, ...args.slice(1));
+        events.emit(args[0] as string, ...args.slice(1));
       }
     };
 
@@ -403,109 +461,25 @@ export default function TodoSource() {
     (globalThis.window as unknown as { simulate: any }).simulate = () => {
       // eslint-disable-next-line unicorn/consistent-function-scoping
       const simulate = async () => {
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser1',
-          '1',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser2',
-          '1',
-          nobody,
-          false,
-          fakeflags
-        );
+        events.emit('chat', 'SimulatedUser1', '1', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser2', '1', nobody, false, fakeflags);
         await sleep(1000);
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser3',
-          '2',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser4',
-          '69',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser5',
-          '1',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser6',
-          '1',
-          nobody,
-          false,
-          fakeflags
-        );
+        events.emit('chat', 'SimulatedUser3', '2', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser4', '69', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser5', '1', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser6', '1', nobody, false, fakeflags);
         await sleep(1500);
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser7',
-          '2',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser8',
-          '2',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser9',
-          '3',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUser0',
-          '1',
-          nobody,
-          false,
-          fakeflags
-        );
+        events.emit('chat', 'SimulatedUser7', '2', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser8', '2', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser9', '3', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUser0', '1', nobody, false, fakeflags);
         await sleep(1000);
-        comfy.events.emit(
-          'chat',
-          'SimulatedUsera',
-          '4',
-          nobody,
-          false,
-          fakeflags
-        );
-        comfy.events.emit(
-          'chat',
-          'SimulatedUserb',
-          '1',
-          nobody,
-          false,
-          fakeflags
-        );
+        events.emit('chat', 'SimulatedUsera', '4', nobody, false, fakeflags);
+        events.emit('chat', 'SimulatedUserb', '1', nobody, false, fakeflags);
       };
       simulate().catch(console.error);
     };
-  }, [isDocumentVisible, comfy]);
+  }, [isDocumentVisible, events]);
 
   const options = [...votes.entries()]
     // const options = [...fakedb.entries()]
@@ -515,7 +489,7 @@ export default function TodoSource() {
 
   const totalVotes = options.reduce((total, { votes }) => total + votes, 0);
 
-  // console.log(options);
+
 
   return (
     <div
@@ -526,9 +500,9 @@ export default function TodoSource() {
       }}
     >
       <div
-        className="px-4 flex flex-row items-center justify-start pb-4"
+        className="p-2 flex flex-row items-center justify-start"
         style={{
-          fontSize: 'clamp(10px, 5cqh, 40px)',
+          fontSize: 'clamp(14px, 7cqh, 48px)',
         }}
       >
         <div className="grow pt-2">
@@ -547,36 +521,33 @@ export default function TodoSource() {
         </div>
         {votingState === 'ready' ? (
           <div className="flex flex-row items-center">
-            <div className="h-5 w-5"></div>
-            <span className="opacity-0">Ready</span>
+            <span className="opacity-0">00s</span>
+            <div className="h-[1.8em] w-[1.8em]"></div>
           </div>
         ) : votingState === 'locked' ? (
-          <div>
-            <Lock className="inline-block h-5 w-5" />
+          <div className="flex flex-row items-center">
+            <span className="opacity-0">00s</span>
+            <Lock className="inline-block h-[1.8em] w-[1.8em]" />
           </div>
         ) : (
           <div className="flex flex-row items-center">
-            <Timer className="inline-block mr-1 h-5 w-5" />
-            <span
-              style={{
-                fontSize: 'clamp(10px, 5cqh, 40px)',
-              }}
-            >
+            <span>
               {`${Math.max(
                 0,
                 Math.ceil((startTime + parameters.duration * 1000 - now) / 1000)
               )}s`}
             </span>
+            <Timer className="inline-block ml-1 h-[1.8em] w-[1.8em]" />
           </div>
         )}
       </div>
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full flex-1">
         {options.map(({ option, votes }, index) => {
           const offset = index * 100;
           return (
             <div
               key={option}
-              className="absolute left-0 top-0 h-[25%] pl-2 pr-4 flex flex-col items-center w-full [container-type:size] transition-all ease-in-out duration-300"
+              className="absolute left-0 top-0 h-[25%] px-2 flex flex-col items-center w-full [container-type:size] transition-all ease-in-out duration-300"
               style={{
                 transform: `translateY(${offset}%)`,
                 opacity: votingState === 'locked' && index > 0 ? 0.5 : 1,
@@ -612,6 +583,15 @@ export default function TodoSource() {
           );
         })}
       </div>
+      {isDemo && !demoRunning && (
+        <button
+          type="button"
+          onClick={runDemo}
+          className="absolute bottom-3 right-3 rounded-full bg-white/20 hover:bg-white/40 p-2 transition-colors"
+        >
+          <Play className="h-5 w-5" style={{ color: parameters.text }} />
+        </button>
+      )}
     </div>
   );
 }

@@ -36,8 +36,12 @@ type ReadOnlyComfyNativeEvents = ComfyJSInstance & {
 };
 
 export const useComfy = (
-  twitchChat: string
-): ComfyWithEvents & ReadOnlyComfyNativeEvents => {
+  twitchChat: string | false
+): (ComfyWithEvents & ReadOnlyComfyNativeEvents) | undefined => {
+  if (twitchChat === false) {
+    return undefined;
+  }
+
   const currentChat = $comfyChat.get();
   const requestedChat = twitchChat.trim().toLocaleLowerCase();
 
