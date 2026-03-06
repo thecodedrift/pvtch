@@ -1,11 +1,15 @@
 {
   "name": "pvtch",
+  "dependencies": {
+    "@fission-ai/openspec": "^1.2.0"
+  },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/node": "^24.9.1",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-unicorn": "^57.0.0",
+    "husky": "^9.1.7",
     "lint-staged": "^15.3.0",
     "prettier": "^3.4.2",
     "syncpack": "^13.0.4",
@@ -16,10 +20,8 @@
   "packageManager": "pnpm@10.12.4",
   "private": true,
   "scripts": {
-    "openspec": "openspec"
+    "openspec": "openspec",
+    "prepare": "husky"
   },
-  "type": "module",
-  "dependencies": {
-    "@fission-ai/openspec": "^1.2.0"
-  }
+  "type": "module"
 }
