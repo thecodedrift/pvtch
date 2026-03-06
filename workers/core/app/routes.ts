@@ -14,6 +14,7 @@ export default [
     route('welcome', './routes/welcome.tsx'),
     route('widgets/progress', './routes/widgets/progress.tsx'),
     route('widgets/1s', './routes/widgets/1s.tsx'),
+    route('widgets/todo', './routes/widgets/todo.tsx'),
     route('helpers/lingo', './routes/helpers/lingo.tsx'),
     route('howto/deploy-your-own', './routes/howto/deploy-your-own.tsx'),
   ]),

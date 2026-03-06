@@ -196,7 +196,11 @@ const getAllTasks = (streamer: string, tasks: Task[]): Task[] => {
 
 const paramsParser = z.object({
   debug: z.coerce.boolean().optional().default(false),
-  help: z.coerce.boolean().optional().default(true),
+  help: z
+    .string()
+    .optional()
+    .default('true')
+    .transform((input) => input.toLocaleLowerCase() === 'true'),
   add: z.string().optional().default('add'),
   done: z.string().optional().default('done'),
   focus: z.string().optional().default('focus'),
@@ -205,6 +209,11 @@ const paramsParser = z.object({
   count: z.coerce.number().optional().default(5),
   bg: z.string().optional().default('rgba(34, 34, 34, 0.8)'),
   fg: z.string().optional().default('white'),
+  demo: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((input) => input.toLocaleLowerCase() === 'true'),
 });
 
 // Loader: fetch url param to loader data, before initializing comfy
@@ -222,15 +231,69 @@ const emptyList: string[] = [];
 /**
  * Primary Todo Sourc Component
  */
+const DEMO_TASKS: Task[] = [
+  {
+    username: 'streamer',
+    description: 'Plan the stream',
+    completed: false,
+    focused: 0,
+    ts: 1,
+    id: 'demo-1',
+  },
+  {
+    username: 'streamer',
+    description: 'Set up overlays',
+    completed: false,
+    focused: 0,
+    ts: 2,
+    id: 'demo-2',
+  },
+  {
+    username: 'streamer',
+    description: 'Update panels',
+    completed: true,
+    focused: 0,
+    ts: 3,
+    id: 'demo-3',
+  },
+  {
+    username: 'viewer42',
+    description: 'Fix the leaderboard',
+    completed: false,
+    focused: 0,
+    ts: 4,
+    id: 'demo-4',
+  },
+  {
+    username: 'viewer42',
+    description: 'Review channel points',
+    completed: false,
+    focused: 0,
+    ts: 5,
+    id: 'demo-5',
+  },
+  {
+    username: 'viewer42',
+    description: 'Clip that play',
+    completed: true,
+    focused: 0,
+    ts: 6,
+    id: 'demo-6',
+  },
+];
+
 export default function TodoSource() {
   useNoTheme();
   const loaderData = useLoaderData<typeof loader>();
-  const comfy = useComfy(loaderData.channel);
-  const [tasks, updateTasks] = useLocalstorageState<Task[]>('todos', []);
   const [rawParams] = useSearchParams();
   const params = useMemo(() => {
     return paramsParser.parse(Object.fromEntries(rawParams.entries()));
   }, []);
+  const comfy = useComfy(params.demo ? false : loaderData.channel);
+  const [tasks, updateTasks] = useLocalstorageState<Task[]>(
+    'todos',
+    params.demo ? DEMO_TASKS : []
+  );
   const [enableScroll, setEnableScroll] = useState(false);
   const isDocumentVisible = useDocumentVisibilityState();
   const headerRef = useRef<HTMLDivElement>(null);
