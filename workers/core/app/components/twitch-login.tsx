@@ -53,7 +53,7 @@ export const TwitchLogin = () => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-9 gap-1.5 px-3 text-sm">
             <TwitchIcon size={16} />
-            {displayName ?? 'Account'}
+            {displayName ?? 'Logged in'}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
