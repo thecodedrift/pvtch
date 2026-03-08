@@ -64,7 +64,7 @@ PVTCH uses Cloudflare's AI services to power the Lingo translation feature, whic
 
 ## Codebase
 
-This codebase is partially built with coding agents, prioritizing documenting the design and architecture of the project. We have a strict "contributors own the commit" policy. This means if you submit a PR, it is assumed to be from you, not from an AI. Repeated low quality contributions may result in a ban from contributing to the project. We encourage all contributors to ensure their contributions are of high quality and adhere to the project's standards.
+This codebase is partially built with coding agents, prioritizing documenting the design and architecture of the project. We have a strict "contributors own the commit" policy. This means if you submit a PR, it is assumed to be from you, regardless of the tool used. Repeated low quality contributions may result in a ban from contributing to the project. We encourage all contributors to ensure their contributions are of high quality and adhere to the project's standards.
 
 To assist in AI assisted contributions, this project leverages OpenSpec https://github.com/Fission-AI/OpenSpec to help agentic systems.
 

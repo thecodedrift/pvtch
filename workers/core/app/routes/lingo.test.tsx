@@ -1,6 +1,6 @@
 import type { Route } from './+types/lingo.test';
 import { cloudflareEnvironmentContext } from '@/context';
-import { translate } from '@/lib/translator';
+import { isSameLanguage, translate } from '@/lib/translator';
 
 type Fixture = {
   input: string;
@@ -107,8 +107,6 @@ async function runTests(env: Env): Promise<Response> {
       const p = (async () => {
         const result = await translate(fixture.input, {
           targetLanguage: targetLanguage,
-          similarityThreshold: 0.5,
-          model: model,
           env: env,
         });
 
@@ -122,24 +120,20 @@ async function runTests(env: Env): Promise<Response> {
 
   const output: string[] = [];
   for (const [input, modelResults] of results.entries()) {
-    output.push(`Input: ${input.input}`);
     for (const model of models) {
       const r = modelResults[model];
-      if (!r) {
+      if (!r || !r.success) {
         output.push(`Model: ${String(model)}\nResult: ERROR`);
         continue;
       }
-      if (input.noop !== r.noop) {
-        output.push(
-          `Model: ${String(model)}\n` +
-            `Expected NOOP: ${input.noop}\n` +
-            `Actual NOOP: ${r.noop}\n` +
-            `Detected Language: ${r.detectedLanguage ?? '(none)'}\n` +
-            `Translation: ${r.translation}\n` +
-            `Raw: ${r.raw}`
-        );
-        continue;
-      }
+
+      output.push(
+        `Model: ${String(model)}\n` +
+          `Detected Language (code): ${r.data.detected} (${r.data.detectedCode})\n` +
+          `Is Same Language: ${isSameLanguage('English', r)}\n` +
+          `Original: ${input.input}\n` +
+          `Translation: ${r.data.translation}`
+      );
     }
     output.push('\n');
   }
@@ -152,10 +146,22 @@ async function runTests(env: Env): Promise<Response> {
 
 export async function loader({ context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
+
+  // if development flag isn't set in env, don't run tests
+  if (env.DEVELOPMENT !== '1') {
+    return new Response('Not found', { status: 404 });
+  }
+
   return runTests(env);
 }
 
 export async function action({ context }: Route.ActionArgs) {
   const env = context.get(cloudflareEnvironmentContext);
+
+  // if development flag isn't set in env, don't run tests
+  if (env.DEVELOPMENT !== '1') {
+    return new Response('Not found', { status: 404 });
+  }
+
   return runTests(env);
 }

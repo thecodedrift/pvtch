@@ -1,13 +1,11 @@
 import type { Route } from './+types/lingo.translate.$token';
+import { v4 } from 'uuid';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
-import { normalizeString, translate } from '@/lib/translator';
+import { isSameLanguage, translate } from '@/lib/translator';
 import { LINGO_KEY, type LingoConfig } from '@/lib/constants/lingo';
 import { knownBots } from '@/lib/known-bots';
-
-// qwen 30b isn't in cf types but is supported
-const CURRENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8' as keyof AiModels;
 
 const ALWAYS_IGNORED_USERS = new Set(knownBots.map((v) => v.toLowerCase()));
 
@@ -22,65 +20,64 @@ async function handleTranslate(
   user: string,
   env: Env
 ): Promise<Response> {
+  const LOG_ID = v4();
   const value = message.trim();
   const userTrimmed = user.trim();
 
+  const log = (msg: string, data?: Record<string, unknown>) => {
+    console.log(`[${LOG_ID}] ${msg}`, {
+      ...data,
+      user: userTrimmed,
+      input: value,
+    });
+  };
+
+  const error = (
+    msg: string,
+    data?: Record<string, unknown>,
+    error?: unknown
+  ) => {
+    console.error(
+      `[${LOG_ID}] ${msg}`,
+      {
+        ...data,
+        user: userTrimmed,
+        input: value,
+      },
+      error
+    );
+  };
+
   // skip always ignored users
   if (ALWAYS_IGNORED_USERS.has(userTrimmed.toLowerCase())) {
-    console.log('User is in always ignored bots list', {
-      user: userTrimmed,
-      value,
-    });
+    log('User is in always ignored bots list');
     return new Response('', { status: 200 });
   }
 
   if (value.startsWith('!')) {
-    console.log('Command detected, skipping translation', {
-      user: userTrimmed,
-      value,
-    });
+    log('Command detected, skipping translation');
     return new Response('', { status: 200 });
   }
 
-  const normalized = normalizeString(value);
-  console.log('incoming lingo translate:', { user: userTrimmed, normalized });
-
-  if (normalized.length === 0 || userTrimmed.length === 0) {
-    console.log('Skipped, no message or user', {
-      user: userTrimmed,
-      normalized,
-    });
+  if (value.length === 0 || userTrimmed.length === 0) {
+    log('Skipped, no message or user');
     return new Response('', { status: 200 });
   }
 
   if (value.toLowerCase().includes('imtyping')) {
-    console.log('Translation Skip: imtyping', {
-      user: userTrimmed,
-      normalized,
-    });
+    log('Translation Skip: imtyping');
     return new Response('', { status: 200 });
   }
 
-  if (value.toLowerCase().includes('megaphonez')) {
-    console.log('Translation Skip: megaphonez', {
-      user: userTrimmed,
-      normalized,
-    });
-    return new Response('', { status: 200 });
-  }
-
-  if (!normalized.includes(' ') && normalized.length <= 6) {
-    console.log('Short single word message, skipping', {
-      user: userTrimmed,
-      normalized,
-    });
+  if (!value.includes(' ') && value.length <= 6) {
+    log('Short single word message, skipping');
     return new Response('', { status: 200 });
   }
 
   const userid = await isValidToken(token, env);
 
   if (!userid) {
-    console.log('Invalid token for lingo translate', { token });
+    log('Invalid token for lingo translate', { token });
     return new Response('', { status: 200 });
   }
 
@@ -95,19 +92,19 @@ async function handleTranslate(
     kvConfig = kvConfigString
       ? (JSON.parse(kvConfigString) as Partial<LingoConfig>)
       : undefined;
-  } catch (error) {
-    console.error('failed to parse lingo config:', error);
+  } catch (error_) {
+    error('failed to parse lingo config:', undefined, error_);
   }
 
   if (!kvConfig) {
     // no config, no translate
-    console.log('No lingo config found', { token, kvName });
+    log('No lingo config found', { token, kvName });
     return new Response('', { status: 200 });
   }
 
   if (!kvConfig.bots || !kvConfig.language) {
     // incomplete config, no translate
-    console.log('Incomplete lingo config', { token, kvConfig });
+    log('Incomplete lingo config', { token, kvConfig });
     return new Response('', { status: 200 });
   }
 
@@ -120,63 +117,46 @@ async function handleTranslate(
 
   if (config.bots.includes(userTrimmed.toLowerCase())) {
     // dont reply to ignored bots / users
-    console.log('User is in ignored bots list', {
-      user: userTrimmed,
-      normalized,
-    });
+    log('User is in ignored bots list');
     return new Response('', { status: 200 });
   }
 
-  console.log('Lingo translate config:', config);
+  log('Lingo translate config:', config);
 
   let result;
 
   try {
-    result = await translate(normalized, {
+    result = await translate(value, {
       targetLanguage: config.language,
-      similarityThreshold: 0.5,
-      model: CURRENT_MODEL,
       env: env,
     });
-  } catch (error) {
-    console.error('Lingo translate failed:', error);
+  } catch (error_) {
+    error('Lingo translate failed:', undefined, error_);
     return new Response('', { status: 200 });
   }
 
-  if (!result) {
-    console.error('Lingo translate failed');
+  if (!result || !result.success) {
+    error('Lingo translate failed. No result');
     return new Response('', { status: 200 });
   }
 
-  console.log('LLM Response:', {
-    input: normalized,
-    output: result.translation,
-    detectedLanguage: result.detectedLanguage,
-    noop: result.noop,
-    noopReason: result.noopReason,
-  });
+  log('LLM Response:', { ...result });
 
-  if (result.noop) {
-    console.log('No translation needed:', result.noopReason);
+  if (isSameLanguage(config.language, result)) {
+    log('No translation needed. Language match');
     return new Response('', { status: 200 });
   }
 
   if (
-    result.translation
+    result.data.translation
       .replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1')
       .trim() === ''
   ) {
-    console.log('Translation result is empty after removing usernames');
+    log('Translation result is empty after removing usernames');
     return new Response('', { status: 200 });
   }
 
-  // safety net: never output NOOP to the user (e.g. "Line2: NOOP")
-  if (/noop/i.test(result.translation)) {
-    console.log('Caught escaped NOOP in final output');
-    return new Response('', { status: 200 });
-  }
-
-  const output = `ImTyping ${result.translation}`;
+  const output = `ImTyping ${result.data.translation}`;
 
   return new Response(output, {
     status: 200,

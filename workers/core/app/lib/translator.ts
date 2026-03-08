@@ -1,255 +1,226 @@
-import pRetry from 'p-retry';
-import { similar } from '@/lib/strings';
+import { z } from 'zod';
 
-const systemPrompt = `You are a translation assistant.
+const MODEL = '@cf/qwen/qwen3-30b-a3b-fp8' as const;
 
-First, identify the language of the input text.
-Then, translate it to the requested target language.
+const LANGUAGE_TRANSLATOR = `
+You are a translation assistant.
+
+## Inputs
+1. The "target language" that the user wants the text translated into
+2. The "input text" that needs to be translated
+
+## Instructions
+1. Identify the language of the input text
+2. Capture the ISO 639-3 three-letter code for the detected language
+2. Translate the input text into the requested target language
 
 Rules:
-- Preserve @usernames exactly as-is
+- Make an infomed attempt to identify the target language
+- If the "input text" is already in the "target language", return it as-is with the detected language matching the target language
+- Preserve @usernames exactly as-is. They are treated as someone's name
 - Ignore kaomoji, Twitch emotes, emoticons, and smileys
 - Prefer natural, fluent translations over literal word-for-word
-- Do NOT correct grammar, spelling, or punctuation — only translate
 
-You MUST respond in EXACTLY this format (two lines):
-Line 1: The detected language name (e.g. English, Korean, Tagalog, Spanish, etc)
-Line 2: The translated text OR the single word NOOP if the text is already in the target language
+## Output
+Your output should be JSON formatted as follows:
 
-Example — needs translation:
-Korean
-Drunk on my ecstasy, you can't look away
+\`\`\`
+{
+  "detected": "The detected language name (e.g. English, Korean, Tagalog, Spanish, etc)",
+  "detectedCode": "The detected ISO 639-3 language code (e.g. eng, kor, tgl, esp, etc)",
+  "translation": "The translated text"
+}
+\`\`\`
+`.trim();
 
-Example — no translation needed:
-English
-NOOP
-`;
+const LANGUAGE_TRANSLATOR_SCHEMA = z.object({
+  detected: z.string(),
+  detectedCode: z.string(),
+  translation: z.string(),
+});
 
-const extractResponse = (response: unknown): string | undefined => {
-  if (!response || response === null) {
-    return undefined;
-  }
-
-  if (typeof response !== 'object') {
-    return undefined;
-  }
-
-  let extracted: string | undefined;
-
-  // qwen-like respones have a choices array
-  if ('choices' in response && Array.isArray(response.choices)) {
-    const choices = response.choices as
-      | { message?: { role?: string; content?: string } }[]
-      | undefined;
-    const content = choices?.[0]?.message?.content;
-    if (content) {
-      // strip thinking block from qwen-like models
-      // eslint-disable-next-line unicorn/prefer-string-replace-all
-      extracted = content.replace(/.+<\/think>/gim, '');
-    }
-  }
-
-  // older llama models have a response property
-  if ('response' in response && typeof response.response === 'string') {
-    extracted = response.response;
-  }
-
-  if (!extracted) {
-    return undefined;
-  }
-
-  // if it started with a <doctype or <html, it's probably an error page, return undefined
-  if (/^\s*<\s*doctype/i.test(extracted) || /^\s*<\s*html/i.test(extracted)) {
-    return undefined;
-  }
-
-  // clean up the response and return it
-  return extracted.trim();
-};
-
-// strips URLs from the input string
-const dropURLs = (string_: string) =>
-  string_
-    .trim()
-    .replaceAll(/(^|\W)https?:\/\/\S+/gi, '') // links
-    .trim();
-
-// cannot segment https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter
-// because we don't know the target language yet
-// do our best attempt to remove twitch emotes while preserving usernames
-const removeTwitchEmotes = (string_: string) => {
-  const segmenter = new Intl.Segmenter('en-US', { granularity: 'word' });
-  const chunks = [...segmenter.segment(string_)];
-  let usernameFlag = false;
-  const output: string[] = [];
-
-  // walk through the segments. If we hit an @, then turn on the "username" flag
-  // if we hit a word segment and the flag is set, continue
-  // remove any twich emotes we know of, replace result
-  // return the username flag to off
-  for (const chunk of chunks) {
-    if (chunk.segment === '@') {
-      usernameFlag = true;
-      output.push(chunk.segment);
-      continue;
-    }
-
-    if (usernameFlag && chunk.isWordLike) {
-      output.push(chunk.segment);
-      usernameFlag = false;
-      continue;
-    }
-
-    if (!chunk.isWordLike) {
-      output.push(chunk.segment);
-      continue;
-    }
-
-    output.push(
-      chunk.segment.replaceAll(/[a-zA-Z][a-z0-9]+[0-9]*[A-Z][a-zA-Z0-9]+/g, '')
-    );
-  }
-
-  return output.join('');
-};
-
-export const normalizeString = (string_: string) => {
-  const operations = [dropURLs, removeTwitchEmotes];
-  let next = string_;
-  for (const op of operations) {
-    next = op(next);
-  }
-  return next.trim();
+const createConversation = ({
+  targetLanguage,
+  input,
+}: {
+  targetLanguage: string;
+  input: string;
+}): AiModels[typeof MODEL]['inputs'] => {
+  return {
+    response_format: {
+      type: 'json_schema',
+      json_schema: LANGUAGE_TRANSLATOR_SCHEMA.toJSONSchema(),
+    },
+    messages: [
+      {
+        role: 'system',
+        content: LANGUAGE_TRANSLATOR,
+      },
+      {
+        role: 'assistant',
+        content: 'What is the requested target language?',
+      },
+      {
+        role: 'user',
+        content: targetLanguage,
+      },
+      {
+        role: 'assistant',
+        content: `What text should I translate?`,
+      },
+      {
+        role: 'user',
+        content: input,
+      },
+    ],
+  };
 };
 
 type TranslateOptions = {
-  targetLanguage: string;
-  similarityThreshold?: number;
-  model?: keyof AiModels;
   env: Env;
+  targetLanguage: string;
 };
 
-export type TranslateResult = {
-  detectedLanguage: string | undefined;
-  translation: string;
-  raw: string;
-  noop: boolean;
-  noopReason: 'language_match' | 'similarity' | 'model_noop' | undefined;
-};
-
-export const translate = async (
-  text: string,
-  options: TranslateOptions
-): Promise<TranslateResult | undefined> => {
-  const input = normalizeString(text);
-
-  try {
-    const rawResponse = await pRetry(
-      async () => {
-        const response = (await options.env.AI.run(
-          options.model ?? '@cf/qwen/qwen3-30b-a3b-fp8',
-          {
-            messages: [
-              {
-                role: 'system',
-                content: systemPrompt,
-              },
-              {
-                role: 'assistant',
-                content: 'What language am I translating to?',
-              },
-              {
-                role: 'user',
-                content: options.targetLanguage,
-              },
-              {
-                role: 'assistant',
-                content: `Okay, I will translate for you. What text should I translate?`,
-              },
-              {
-                role: 'user',
-                content: input,
-              },
-            ],
-          }
-        )) as Record<string, unknown>;
-
-        return extractResponse(response);
-      },
-      {
-        retries: 3,
-      }
-    );
-
-    if (!rawResponse) {
-      return;
+type TranslationResponse =
+  | {
+      success: true;
+      data: z.infer<typeof LANGUAGE_TRANSLATOR_SCHEMA>;
+      raw?: string;
     }
-
-    // parse two-line format: "DetectedLanguage\nTranslation"
-    const newlineIndex = rawResponse.indexOf('\n');
-    let detectedLanguage: string | undefined;
-    let llmResponse: string;
-
-    if (newlineIndex > 0) {
-      detectedLanguage = rawResponse.slice(0, newlineIndex).trim();
-      llmResponse = rawResponse.slice(newlineIndex + 1).trim();
-    } else {
-      // model didn't follow format — treat entire response as translation
-      llmResponse = rawResponse;
-    }
-
-    // strip "line 1:" / "line 2:" prefixes the model sometimes adds
-    const linePrefix = /^line\s*\d+\s*:\s*/i;
-    if (detectedLanguage) {
-      detectedLanguage = detectedLanguage.replace(linePrefix, '').trim();
-    }
-    llmResponse = llmResponse.replace(linePrefix, '').trim();
-
-    const result: TranslateResult = {
-      detectedLanguage,
-      translation: llmResponse,
-      raw: rawResponse,
-      noop: false,
-      noopReason: undefined,
+  | {
+      success: false;
+      error: string;
+      details?: unknown;
+      raw?: string;
     };
 
-    // if the model returned NOOP anywhere in the response (e.g. "Line2: NOOP")
-    if (/noop/i.test(llmResponse)) {
-      result.noop = true;
-      result.noopReason = 'model_noop';
-      return result;
-    }
+export const translate = async (
+  input: string,
+  options: TranslateOptions
+): Promise<TranslationResponse> => {
+  const { env, targetLanguage } = options;
+  const response = (await env.AI.run(
+    '@cf/qwen/qwen3-30b-a3b-fp8',
+    createConversation({
+      targetLanguage,
+      input,
+    })
+  )) as Ai_Cf_Qwen_Qwen3_30B_A3B_Fp8_Chat_Completion_Response;
 
-    // if the detected language matches the target, force NOOP
-    if (
-      detectedLanguage &&
-      detectedLanguage.toLowerCase() === options.targetLanguage.toLowerCase()
-    ) {
-      result.noop = true;
-      result.noopReason = 'language_match';
-      return result;
-    }
+  // content location
+  const rawData = response.choices?.[0]?.message?.content;
+  let data: z.infer<typeof LANGUAGE_TRANSLATOR_SCHEMA> | undefined;
 
-    // similarity check: short messages use a lower threshold (language
-    // detection is unreliable for 1-3 words), longer messages use a higher
-    // threshold to catch near-identical "translations" without blocking
-    // real translations of mixed-language text
-    if (options.similarityThreshold !== undefined) {
-      const wordCount = input.split(/\s+/).length;
-      const threshold =
-        wordCount <= 3
-          ? options.similarityThreshold
-          : Math.max(options.similarityThreshold, 0.75);
-      if (similar(normalizeString(llmResponse), input, threshold)) {
-        result.noop = true;
-        result.noopReason = 'similarity';
-        return result;
-      }
-    }
-
-    return result;
+  try {
+    data = LANGUAGE_TRANSLATOR_SCHEMA.parse(JSON.parse(rawData ?? ''));
   } catch (error) {
-    console.error('Translate error:', error);
-    return;
+    return {
+      success: false,
+      error: 'Failed to parse translator response',
+      details: error,
+      raw: rawData,
+    };
   }
+
+  return {
+    success: true,
+    data,
+    raw: rawData,
+  };
+};
+
+export const isSameLanguage = (
+  language: string,
+  translationResponse: TranslationResponse
+): boolean => {
+  if (!translationResponse.success) {
+    return true;
+  }
+
+  return (
+    translationResponse.data.detected.toLocaleLowerCase() ===
+    language.toLocaleLowerCase()
+  );
+};
+
+export const languageCodeToAnnotation = (code: string): string => {
+  const map = {
+    a: 'ᵃ',
+    b: 'ᵇ',
+    c: 'ᶜ',
+    d: 'ᵈ',
+    e: 'ᵉ',
+    f: 'ᶠ',
+    g: 'ᵍ',
+    h: 'ʰ',
+    i: 'ⁱ',
+    j: 'ʲ',
+    k: 'ᵏ',
+    l: 'ˡ',
+    m: 'ᵐ',
+    n: 'ⁿ',
+    o: 'ᵒ',
+    p: 'ᵖ',
+    q: '۹',
+    r: 'ʳ',
+    s: 'ˢ',
+    t: 'ᵗ',
+    u: 'ᵘ',
+    v: 'ᵛ',
+    w: 'ʷ',
+    x: 'ˣ',
+    y: 'ʸ',
+    z: 'ᶻ',
+    A: 'ᴬ',
+    B: 'ᴮ',
+    C: 'ᑦ',
+    D: 'ᴰ',
+    E: 'ᴱ',
+    F: 'ᶠ',
+    G: 'ᴳ',
+    H: 'ᴴ',
+    I: 'ᴵ',
+    J: 'ᴶ',
+    K: 'ᴷ',
+    L: 'ᴸ',
+    M: 'ᴹ',
+    N: 'ᴺ',
+    O: 'ᴼ',
+    P: 'ᴾ',
+    Q: '۹',
+    R: 'ᴿ',
+    S: 'ˢ',
+    T: 'ᵀ',
+    U: 'ᵁ',
+    V: 'ⱽ',
+    W: 'ᵂ',
+    X: 'ˣ',
+    Y: 'ʸ',
+    Z: 'ᶻ',
+    '0': '⁰',
+    '1': '¹',
+    '2': '²',
+    '3': '³',
+    '4': '⁴',
+    '5': '⁵',
+    '6': '⁶',
+    '7': '⁷',
+    '8': '⁸',
+    '9': '⁹',
+    '+': '⁺',
+    '-': '⁻',
+    '=': '⁼',
+    '(': '⁽',
+    ')': '⁾',
+    // Note: Not all characters have a standard superscript Unicode equivalent.
+  } as const;
+
+  return [...code]
+    .map((char) => {
+      if (char in map) {
+        return map[char as keyof typeof map];
+      }
+      return char;
+    })
+    .join('');
 };
