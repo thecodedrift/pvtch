@@ -1,53 +1,77 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useState } from 'react';
+import { LogOut } from 'lucide-react';
 import { TwitchIcon } from '@/components/ui/icons/twitch';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import useCookie from '@/hooks/use-cookie';
 
-export const TwitchLogin = () => {
-  const [userToken, _, removeUserToken] = useCookie('pvtch_token');
-  const [loginUrl, setLoginUrl] = useState<URL | undefined>();
-  const isLoggedIn = !!userToken;
-
-  const handleLogout = useMemo(
-    () => () => {
-      removeUserToken();
-      // reload the page
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      }
-    },
-    []
-  );
+export function useLoginUrl() {
+  const [loginUrl, setLoginUrl] = useState<string>('#');
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (globalThis.window === undefined) {
       return;
     }
 
-    const currentUrl = new URL(window.location.href);
-    const loginUrl = new URL(
+    const currentUrl = new URL(globalThis.window.location.href);
+    const url = new URL(
       currentUrl.hostname === 'localhost'
         ? 'http://localhost:5173'
         : 'https://www.pvtch.com'
     );
-    loginUrl.pathname = '/auth/start';
-    setLoginUrl(loginUrl);
+    url.pathname = '/auth/start';
+    setLoginUrl(url.toString());
   }, []);
 
+  return loginUrl;
+}
+
+export const TwitchLogin = () => {
+  const [userToken, , removeUserToken] = useCookie('pvtch_token');
+  const [userName, , removeUserName] = useCookie('pvtch_name');
+  const loginUrl = useLoginUrl();
+  const isLoggedIn = !!userToken;
+
+  const displayName = userName ? decodeURIComponent(userName) : undefined;
+
+  const handleLogout = useCallback(() => {
+    removeUserToken();
+    removeUserName();
+    if (globalThis.window !== undefined) {
+      globalThis.window.location.reload();
+    }
+  }, [removeUserToken, removeUserName]);
+
+  if (isLoggedIn) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-9 gap-1.5 px-3 text-sm">
+            <TwitchIcon size={16} />
+            {displayName ?? 'Account'}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
-    <>
-      {isLoggedIn ? (
-        <Button onClick={handleLogout}>
-          <span>Logout</span>
-        </Button>
-      ) : (
-        <Button className="bg-[#8c45f7] text-white! hover:bg-[#9569f7]" asChild>
-          <a href={loginUrl?.toString() ?? '#'}>
-            <TwitchIcon />
-            <span>Login With Twitch</span>
-          </a>
-        </Button>
-      )}
-    </>
+    <Button variant="ghost" size="icon" className="size-9" asChild>
+      <a href={loginUrl}>
+        <TwitchIcon size={16} />
+        <span className="sr-only">Sign in with Twitch</span>
+      </a>
+    </Button>
   );
 };
