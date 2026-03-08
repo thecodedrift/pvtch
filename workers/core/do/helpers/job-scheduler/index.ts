@@ -16,7 +16,7 @@ export interface JobOptions {
 }
 
 export interface JobSchedulerHost {
-  scheduled(job: ScheduledJob): Promise<void>;
+  scheduled(job: ScheduledJob): void | Promise<void>;
 }
 
 /** How long to retain completed/dead jobs before reaping (30 days) */
@@ -55,13 +55,8 @@ export class JobScheduler {
     const now = Date.now();
     const maxRetries = options?.maxRetries ?? 3;
     const backoffBaseSeconds = options?.backoffBaseSeconds ?? 30;
-    let scheduledAt: number;
-
-    if (when instanceof Date) {
-      scheduledAt = when.getTime();
-    } else {
-      scheduledAt = now + when * 1000;
-    }
+    const scheduledAt =
+      when instanceof Date ? when.getTime() : now + when * 1000;
 
     // Idempotency key deduplication: skip if a non-dead job with this key exists
     if (options?.key) {

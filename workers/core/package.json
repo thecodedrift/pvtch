@@ -54,8 +54,8 @@
     "cf-typegen": "wrangler types",
     "deploy": "pnpm run build && wrangler deploy",
     "dev": "react-router dev",
-    "lint": "eslint app/",
-    "lint:fix": "eslint app/ --fix",
+    "lint": "eslint app/ do/ cloudflare/",
+    "lint:fix": "eslint app/ do/ cloudflare/ --fix",
     "preview": "pnpm run build && vite preview",
     "typecheck": "pnpm run cf-typegen && react-router typegen && tsc -b"
   },

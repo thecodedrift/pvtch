@@ -36,7 +36,7 @@ export class User extends DurableObject<Env> implements JobSchedulerHost {
     await this.scheduler.processAlarm(this);
   }
 
-  async scheduled(job: ScheduledJob): Promise<void> {
+  scheduled(job: ScheduledJob): void {
     switch (job.task) {
       default: {
         console.warn(`Unknown scheduled task: ${job.task}`);
