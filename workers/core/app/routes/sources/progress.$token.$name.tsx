@@ -1,71 +1,75 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLoaderData, useRevalidator, data } from 'react-router';
+import z from 'zod';
 import type { Route } from './+types/progress.$token.$name';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
 import { BasicBar } from '@/components/progress-bar';
-import { defaults as progressDefaults } from '@/components/progress-bar/options';
 
 const POLL_INTERVAL = 3000; // ms
 
-type ProgressConfig = {
+const DEFAULTS: {
   fg1: string;
   fg2: string;
   bg: string;
   goal: number;
-  text: string;
   decimal: number;
+  text: string;
   prefix: string;
+} = {
+  fg1: 'rgba(255, 255, 255, 1)',
+  fg2: 'rgba(255, 255, 255, 1)',
+  bg: 'rgba(0, 0, 0, 1)',
+  goal: 100,
+  decimal: 0,
+  text: '',
+  prefix: '',
 };
 
-const parseConfig = (configString?: string): ProgressConfig => {
-  if (!configString || configString.length === 0) {
-    return {
-      fg1: progressDefaults.fg1,
-      fg2: progressDefaults.fg2,
-      bg: progressDefaults.bg,
-      goal: progressDefaults.goal,
-      text: progressDefaults.text ?? '',
-      decimal: progressDefaults.decimal,
-      prefix: progressDefaults.prefix ?? '',
-    };
-  }
+const parameterParser = z
+  .object({
+    fg1: z.string().optional().default(DEFAULTS.fg1),
+    fg2: z.string().optional().default(DEFAULTS.fg2),
+    bg: z.string().optional().default(DEFAULTS.bg),
+    goal: z
+      .string()
+      .optional()
+      .default(`${DEFAULTS.goal}`)
+      .transform((input) => {
+        const value = Number.parseInt(input, 10);
+        if (Number.isNaN(value) || value <= 0) {
+          return DEFAULTS.goal;
+        }
+        return value;
+      }),
+    decimal: z
+      .string()
+      .optional()
+      .default(`${DEFAULTS.decimal}`)
+      .transform((input) => {
+        const value = Number.parseInt(input, 10);
+        if (Number.isNaN(value) || value < 0) {
+          return DEFAULTS.decimal;
+        }
+        return value;
+      }),
+    text: z.string().optional().default(DEFAULTS.text),
+    prefix: z.string().optional().default(DEFAULTS.prefix),
+  })
+  .optional()
+  .default(DEFAULTS);
 
-  try {
-    const parsed = JSON.parse(configString);
-    return {
-      fg1: parsed.fg1 ?? progressDefaults.fg1,
-      fg2: parsed.fg2 ?? progressDefaults.fg2,
-      bg: parsed.bg ?? progressDefaults.bg,
-      goal: parsed.goal ?? progressDefaults.goal,
-      text: parsed.text ?? progressDefaults.text ?? '',
-      decimal: parsed.decimal ?? progressDefaults.decimal,
-      prefix: parsed.prefix ?? progressDefaults.prefix ?? '',
-    };
-  } catch {
-    return {
-      fg1: progressDefaults.fg1,
-      fg2: progressDefaults.fg2,
-      bg: progressDefaults.bg,
-      goal: progressDefaults.goal,
-      text: progressDefaults.text ?? '',
-      decimal: progressDefaults.decimal,
-      prefix: progressDefaults.prefix ?? '',
-    };
-  }
-};
+export { DEFAULTS };
 
 export function meta({ params }: Route.MetaArgs) {
   return [{ title: `Progress: ${params.name}` }];
 }
 
-// Loader: fetch both config and current progress value from Durable Objects
-export async function loader({ params, context }: Route.LoaderArgs) {
+export async function loader({ params, request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
   const { token, name } = params;
 
-  // Validate token
   const userid = await isValidToken(token, env);
   if (!userid) {
     return data(
@@ -74,23 +78,20 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     );
   }
 
-  const progressKey = `progress-${name}`;
-  const configKey = `progress-${name}-config`;
-
-  // Fetch config from Durable Object
-  const configNormalizedKey = normalizeKey(token, configKey);
-  const configCdo = env.PVTCH_BACKEND.idFromName(configNormalizedKey);
-  const configStub = env.PVTCH_BACKEND.get(configCdo);
-  const configString = await configStub.get();
+  // Parse config from URL search params
+  const url = new URL(request.url);
+  const config = parameterParser.parse(
+    Object.fromEntries(url.searchParams.entries())
+  );
 
   // Fetch current progress value from Durable Object
+  const progressKey = `progress-${name}`;
   const progressNormalizedKey = normalizeKey(token, progressKey);
   const progressCdo = env.PVTCH_BACKEND.idFromName(progressNormalizedKey);
   const progressStub = env.PVTCH_BACKEND.get(progressCdo);
   const progressString = await progressStub.get();
 
-  const progress = parseFloat(progressString) || 0;
-  const config = parseConfig(configString);
+  const progress = Number.parseFloat(progressString) || 0;
 
   return data({
     valid: true as const,
@@ -112,7 +113,7 @@ export default function ProgressSource() {
 
     const interval = setInterval(() => {
       if (revalidator.state === 'idle') {
-        revalidator.revalidate();
+        void revalidator.revalidate();
       }
     }, POLL_INTERVAL);
 

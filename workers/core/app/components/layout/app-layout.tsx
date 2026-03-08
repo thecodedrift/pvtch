@@ -21,9 +21,9 @@ const navigation = [
   {
     title: 'Widgets',
     items: [
-      { title: 'Quick Poll', href: '/widgets/1s' },
-      { title: 'Chat Tasks', href: '/widgets/todo' },
+      { title: 'Coworking Tasks', href: '/widgets/todo' },
       { title: 'Progress Bar', href: '/widgets/progress' },
+      { title: 'Quick Poll', href: '/widgets/1s' },
     ],
   },
   {
