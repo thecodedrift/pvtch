@@ -4,8 +4,9 @@ import {
   cloudflareExecutionContext,
 } from '../app/context';
 
-// Re-export Durable Object for Cloudflare
+// Re-export Durable Objects for Cloudflare
 export { PvtchBackend } from '../do/backend';
+export { User } from '../do/user';
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),

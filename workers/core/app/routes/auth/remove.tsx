@@ -10,9 +10,7 @@ import {
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.get(cloudflareEnvironmentContext);
 
-  const content = (await request.json()) as
-    | { username?: string; token?: string }
-    | undefined;
+  const content: { username?: string; token?: string } = await request.json();
   const username = content?.username;
   const token = content?.token;
 

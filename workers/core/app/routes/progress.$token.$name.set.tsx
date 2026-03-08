@@ -1,8 +1,7 @@
 import type { Route } from './+types/progress.$token.$name.set';
 import { cloudflareEnvironmentContext } from '@/context';
-import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
-import { PROGRESS_KEY, progressValue } from '@/lib/constants/progress';
+import { progressValue } from '@/lib/constants/progress';
 
 async function handleProgressSet(
   token: string,
@@ -16,12 +15,8 @@ async function handleProgressSet(
     return Response.json({ error: 'Invalid token' }, { status: 400 });
   }
 
-  const fqn = `${PROGRESS_KEY}::${name}`;
-  const normalizedKey = normalizeKey(token, fqn);
   const value =
     typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue);
-  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
-  const stub = env.PVTCH_BACKEND.get(cdo);
 
   const parsed = progressValue.safeParse(Number(value));
   if (!parsed.success) {
@@ -29,8 +24,12 @@ async function handleProgressSet(
     return Response.json({ error: 'Invalid progress value' }, { status: 400 });
   }
 
-  // stubs hold their own storage per stub via sqlite
-  await stub.set(value);
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
+
+  using progress = await stub.progress();
+  await progress.set(name, parsed.data);
 
   return Response.json({ _: value });
 }

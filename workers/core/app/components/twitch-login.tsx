@@ -18,13 +18,7 @@ export function useLoginUrl() {
       return;
     }
 
-    const currentUrl = new URL(globalThis.window.location.href);
-    const url = new URL(
-      currentUrl.hostname === 'localhost'
-        ? 'http://localhost:5173'
-        : 'https://www.pvtch.com'
-    );
-    url.pathname = '/auth/start';
+    const url = new URL('/auth/start', globalThis.window.location.origin);
     setLoginUrl(url.toString());
   }, []);
 

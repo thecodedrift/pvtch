@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AuthGate } from '@/components/auth-gate';
-import type { TTLOptions } from '@@/do/backend';
 
 // Firebot setup images
 import firebotCreateEvent from './_lingo-assets/firebot/create_event.png';
@@ -113,19 +112,29 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return data({ authenticated: false as const });
   }
 
-  const configKey = 'lingo-config';
+  // Fetch config from User DO
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
+  using lingoPlugin = await stub.lingo();
+  let config = await lingoPlugin.getConfig();
 
-  // Fetch config from Durable Object
-  const normalizedKey = normalizeKey(token, configKey);
-  const cdo = env.PVTCH_BACKEND.idFromName(normalizedKey);
-  const stub = env.PVTCH_BACKEND.get(cdo);
-  const configString = await stub.get();
+  // Temporary migration: pull from old DO if no config exists yet
+  if (!config) {
+    const oldKey = normalizeKey(token, 'lingo-config');
+    const oldStub = env.PVTCH_BACKEND.get(env.PVTCH_BACKEND.idFromName(oldKey));
+    const oldConfigString = await oldStub.get();
+    if (oldConfigString && oldConfigString.length > 0) {
+      const parsed = parseConfig(oldConfigString);
+      await lingoPlugin.import(parsed);
+      config = parsed;
+    }
+  }
 
   return data({
     authenticated: true as const,
     token,
-    configKey,
-    config: parseConfig(configString),
+    config: config ?? defaults,
   });
 }
 
@@ -149,7 +158,6 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   const formData = await request.formData();
-  const configKey = 'lingo-config';
   const botsRaw = (formData.get('bots') as string) ?? '';
   const languageRaw = (formData.get('language') as string) ?? 'english';
 
@@ -172,18 +180,12 @@ export async function action({ request, context }: Route.ActionArgs) {
     );
   }
 
-  const configValue = JSON.stringify({ bots, language });
-
-  // Save to Durable Object with extended TTL for config
-  const ttlOptions: TTLOptions = {
-    strategy: 'PRESERVE_ON_FETCH',
-    ttlMs: 30 * 24 * 60 * 60 * 1000, // 30 days
-  };
-
-  const normalizedKey = normalizeKey(token, configKey);
-  const cdo = env.PVTCH_BACKEND.idFromName(normalizedKey);
-  const stub = env.PVTCH_BACKEND.get(cdo);
-  await stub.set(configValue, ttlOptions);
+  // Save to User DO
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
+  using lingoPlugin = await stub.lingo();
+  await lingoPlugin.setConfig({ bots, language });
 
   return data({ success: true });
 }
@@ -224,9 +226,10 @@ export default function HelpersLingo() {
   }, [config]);
 
   // Generate URLs for display (placeholder when not authenticated)
+  const origin = globalThis.location?.origin ?? 'https://www.pvtch.com';
   const translateAllUrl = loaderData.authenticated
-    ? `https://www.pvtch.com/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`
-    : 'https://www.pvtch.com/lingo/translate/YOUR_TOKEN/user=SENDINGUSER&message=MESSAGEHERE';
+    ? `${origin}/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`
+    : `${origin}/lingo/translate/YOUR_TOKEN?user=SENDINGUSER&message=MESSAGEHERE`;
 
   return (
     <div>
@@ -289,13 +292,11 @@ export default function HelpersLingo() {
                   if (!value.trim()) return 'Language is required';
                   if (!isKnownLanguage(value))
                     return 'Unrecognized language. Use a name like "english" or a code like "en".';
-                  return undefined;
                 },
                 onSubmit: ({ value }) => {
                   if (!value.trim()) return 'Language is required';
                   if (!isKnownLanguage(value))
                     return 'Unrecognized language. Use a name like "english" or a code like "en".';
-                  return undefined;
                 },
               }}
               children={(field) => (

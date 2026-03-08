@@ -23,7 +23,7 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -44,7 +44,13 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function CodeBlock({ children, copyable }: { children: string; copyable?: boolean }) {
+function CodeBlock({
+  children,
+  copyable,
+}: {
+  children: string;
+  copyable?: boolean;
+}) {
   return (
     <div className="relative">
       <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
@@ -81,11 +87,13 @@ function Step({
 export default function DeployYourOwn() {
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Deploy Your Own PVTCH Instance</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        Deploy Your Own PVTCH Instance
+      </h1>
       <p className="text-lg text-muted-foreground mb-4">
-        PVTCH is fully open source and designed to run on Cloudflare's free tier.
-        Follow this guide to deploy your own instance with complete control over
-        your data and customization.
+        PVTCH is fully open source and designed to run on Cloudflare's free
+        tier. Follow this guide to deploy your own instance with complete
+        control over your data and customization.
       </p>
       <p className="text-muted-foreground mb-8">
         Hosting your own instance also helps us save on infrastructure costs, so
@@ -199,7 +207,8 @@ export default function DeployYourOwn() {
             </a>
           </li>
           <li>
-            <strong>Node.js 20+</strong> and <strong>pnpm</strong> installed locally
+            <strong>Node.js 20+</strong> and <strong>pnpm</strong> installed
+            locally
           </li>
         </ul>
       </div>
@@ -224,11 +233,9 @@ export default function DeployYourOwn() {
               <ExternalLink className="size-4" />
             </a>
           </Button>
-          <p className="text-sm">
-            After forking, clone your fork locally:
-          </p>
+          <p className="text-sm">After forking, clone your fork locally:</p>
           <CodeBlock copyable>
-{`git clone https://github.com/YOUR_USERNAME/pvtch.git
+            {`git clone https://github.com/YOUR_USERNAME/pvtch.git
 cd pvtch
 pnpm install`}
           </CodeBlock>
@@ -274,29 +281,29 @@ pnpm install`}
             <li>
               <strong>Category:</strong> Website Integration
             </li>
-            <li>Click "Create" and note your <strong>Client ID</strong></li>
-            <li>Click "New Secret" and save your <strong>Client Secret</strong></li>
+            <li>
+              Click "Create" and note your <strong>Client ID</strong>
+            </li>
+            <li>
+              Click "New Secret" and save your <strong>Client Secret</strong>
+            </li>
           </ol>
           <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
-            <strong>Important:</strong> Keep your Client Secret safe! Never commit
-            it to your repository.
+            <strong>Important:</strong> Keep your Client Secret safe! Never
+            commit it to your repository.
           </div>
         </Step>
 
         <Step number={3} title="Configure Cloudflare Resources">
-          <p>
-            Install the Wrangler CLI and log in to your Cloudflare account:
-          </p>
+          <p>Install the Wrangler CLI and log in to your Cloudflare account:</p>
           <CodeBlock copyable>
-{`pnpm add -g wrangler
+            {`pnpm add -g wrangler
 wrangler login`}
           </CodeBlock>
 
-          <p>
-            Create the required KV namespaces:
-          </p>
+          <p>Create the required KV namespaces:</p>
           <CodeBlock copyable>
-{`# General storage
+            {`# General storage
 wrangler kv namespace create PVTCH_KV
 
 # Account/token mappings
@@ -308,11 +315,13 @@ wrangler kv namespace create PVTCH_TRANSLATIONS`}
 
           <p>
             Each command will output an ID. Update{' '}
-            <code className="bg-muted px-1 rounded">workers/core/wrangler.jsonc</code>{' '}
+            <code className="bg-muted px-1 rounded">
+              workers/core/wrangler.jsonc
+            </code>{' '}
             with your namespace IDs:
           </p>
           <CodeBlock>
-{`"kv_namespaces": [
+            {`"kv_namespaces": [
   {
     "binding": "PVTCH_KV",
     "id": "YOUR_KV_ID_HERE"
@@ -332,22 +341,21 @@ wrangler kv namespace create PVTCH_TRANSLATIONS`}
         <Step number={4} title="Update Configuration">
           <p>
             Update the Twitch client ID and URLs in{' '}
-            <code className="bg-muted px-1 rounded">workers/core/wrangler.jsonc</code>:
+            <code className="bg-muted px-1 rounded">
+              workers/core/wrangler.jsonc
+            </code>
+            :
           </p>
           <CodeBlock>
-{`"vars": {
+            {`"vars": {
   "TWITCH_CLIENT_ID": "your_twitch_client_id",
   "TWITCH_REDIRECT_URI": "https://your-domain.com/auth/callback",
   "PVTCH_APP_URL": "https://your-domain.com"
 }`}
           </CodeBlock>
 
-          <p>
-            Set your Twitch secret as a secure secret (not in code):
-          </p>
-          <CodeBlock copyable>
-{`wrangler secret put TWITCH_SECRET`}
-          </CodeBlock>
+          <p>Set your Twitch secret as a secure secret (not in code):</p>
+          <CodeBlock copyable>{`wrangler secret put TWITCH_SECRET`}</CodeBlock>
           <p className="text-sm">
             You'll be prompted to enter the secret value securely.
           </p>
@@ -360,7 +368,7 @@ wrangler kv namespace create PVTCH_TRANSLATIONS`}
             <code className="bg-muted px-1 rounded">workers/core/</code>:
           </p>
           <CodeBlock>
-{`# Copy from .dev.vars.example
+            {`# Copy from .dev.vars.example
 TWITCH_SECRET=your_twitch_client_secret
 TWITCH_CLIENT_ID=your_twitch_client_id
 TWITCH_REDIRECT_URI=http://localhost:5173/auth/callback
@@ -369,17 +377,15 @@ PVTCH_APP_URL=http://localhost:5173`}
 
           <p>Then start the dev server:</p>
           <CodeBlock copyable>
-{`cd workers/core
+            {`cd workers/core
 pnpm run dev`}
           </CodeBlock>
         </Step>
 
         <Step number={6} title="Deploy">
-          <p>
-            Build and deploy to Cloudflare Workers:
-          </p>
+          <p>Build and deploy to Cloudflare Workers:</p>
           <CodeBlock copyable>
-{`cd workers/core
+            {`cd workers/core
 pnpm run deploy`}
           </CodeBlock>
 
@@ -391,9 +397,9 @@ pnpm run deploy`}
           </p>
 
           <p>
-            <strong>Custom domain (optional):</strong> You can add a custom domain
-            in the Cloudflare dashboard under Workers &rarr; your worker &rarr;
-            Settings &rarr; Domains & Routes.
+            <strong>Custom domain (optional):</strong> You can add a custom
+            domain in the Cloudflare dashboard under Workers &rarr; your worker
+            &rarr; Settings &rarr; Domains & Routes.
           </p>
         </Step>
       </div>
@@ -414,14 +420,15 @@ pnpm run deploy`}
             <p className="text-muted-foreground text-sm">
               Durable Objects are automatically created on first deploy. If you
               see errors, try running{' '}
-              <code className="bg-muted px-1 rounded">wrangler deploy</code> again.
+              <code className="bg-muted px-1 rounded">wrangler deploy</code>{' '}
+              again.
             </p>
           </div>
           <div>
             <h3 className="font-semibold">Translation not working</h3>
             <p className="text-muted-foreground text-sm">
-              Workers AI is enabled by default. Make sure your Cloudflare account
-              has AI enabled (it's in the free tier).
+              Workers AI is enabled by default. Make sure your Cloudflare
+              account has AI enabled (it's in the free tier).
             </p>
           </div>
         </div>

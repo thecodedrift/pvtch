@@ -11,7 +11,7 @@ export const paramToInt = (param: string | undefined, defaultValue: number) => {
 
 export const paramToFloat = (
   param: string | undefined,
-  defaultValue: number,
+  defaultValue: number
 ) => {
   if (!param) {
     return defaultValue;
@@ -25,7 +25,7 @@ export const paramToFloat = (
 
 export const paramToBool = (
   param: string | undefined,
-  defaultValue: boolean,
+  defaultValue: boolean
 ) => {
   if (!param) {
     return defaultValue;
@@ -45,24 +45,24 @@ export const paramToKey = (param: string | undefined, defaultValue: string) => {
     return defaultValue;
   }
 
-  return `${param}`.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  return `${param}`.toLowerCase().replaceAll(/[^a-z0-9_]/g, '');
 };
 
 type ConverterCallback = (value: string | undefined) => string | undefined;
 
 export const objectToParams = (
   obj: Record<string, string | undefined>,
-  handlers: Record<string, ConverterCallback>,
+  handlers: Record<string, ConverterCallback>
 ) => {
   const params = new URLSearchParams();
-  Object.entries(obj).forEach(([key, value]) => {
+  for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined && value !== '') {
       const intent = handlers[key] ? handlers[key](value) : value;
       if (intent) {
         params.set(key, value);
       }
     }
-  });
+  }
 
   return params;
 };
@@ -70,10 +70,10 @@ export const objectToParams = (
 export const paramsToObject = <T extends Record<string, unknown>>(
   params: URLSearchParams,
   defaults: T,
-  handlers: Record<string, ConverterCallback>,
+  handlers: Record<string, ConverterCallback>
 ): T => {
   const result: T = { ...defaults };
-  Object.keys(defaults).forEach((key) => {
+  for (const key of Object.keys(defaults)) {
     const paramValue = params.get(key) ?? undefined;
     if (handlers[key]) {
       result[key as keyof T] = (handlers[key](paramValue) ??
@@ -81,6 +81,6 @@ export const paramsToObject = <T extends Record<string, unknown>>(
     } else {
       result[key as keyof T] = (paramValue ?? defaults[key]) as T[keyof T];
     }
-  });
+  }
   return result;
 };

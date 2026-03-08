@@ -21,6 +21,10 @@
       "tag": "v2",
       "renamed_classes": [{ "from": "MyDurableObject", "to": "PvtchBackend" }],
     },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["User"],
+    },
   ],
 
   "durable_objects": {
@@ -28,6 +32,10 @@
       {
         "name": "PVTCH_BACKEND",
         "class_name": "PvtchBackend",
+      },
+      {
+        "name": "PVTCH_USER",
+        "class_name": "User",
       },
     ],
   },

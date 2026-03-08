@@ -130,7 +130,7 @@ async function runTests(env: Env): Promise<Response> {
       output.push(
         `Model: ${String(model)}\n` +
           `Detected Language (code): ${r.data.detected} (${r.data.detectedCode})\n` +
-          `Is Same Language: ${isSameLanguage('English', r)}\n` +
+          `Is Same Language: ${isSameLanguage('English', input.input, r)}\n` +
           `Original: ${input.input}\n` +
           `Translation: ${r.data.translation}`
       );

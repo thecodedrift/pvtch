@@ -1,10 +1,9 @@
 import type { Route } from './+types/lingo.translate.$token';
 import { v4 } from 'uuid';
 import { cloudflareEnvironmentContext } from '@/context';
-import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
 import { isSameLanguage, translate } from '@/lib/translator';
-import { LINGO_KEY, type LingoConfig } from '@/lib/constants/lingo';
+import { type LingoConfig } from '@/lib/constants/lingo';
 import { knownBots } from '@/lib/known-bots';
 
 const ALWAYS_IGNORED_USERS = new Set(knownBots.map((v) => v.toLowerCase()));
@@ -81,38 +80,28 @@ async function handleTranslate(
     return new Response('', { status: 200 });
   }
 
-  // fetch kv as late as possible to avoid wasted work
-  const kvName = normalizeKey(token, LINGO_KEY);
-  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(kvName);
-  const stub = env.PVTCH_BACKEND.get(cdo);
-  const kvConfigString = await stub.get();
+  // fetch config from User DO
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
+  using lingoPlugin = await stub.lingo();
+  const doConfig = await lingoPlugin.getConfig();
 
-  let kvConfig: Partial<LingoConfig> | undefined;
-  try {
-    kvConfig = kvConfigString
-      ? (JSON.parse(kvConfigString) as Partial<LingoConfig>)
-      : undefined;
-  } catch (error_) {
-    error('failed to parse lingo config:', undefined, error_);
-  }
-
-  if (!kvConfig) {
-    // no config, no translate
-    log('No lingo config found', { token, kvName });
+  if (!doConfig) {
+    log('No lingo config found', { token });
     return new Response('', { status: 200 });
   }
 
-  if (!kvConfig.bots || !kvConfig.language) {
-    // incomplete config, no translate
-    log('Incomplete lingo config', { token, kvConfig });
+  if (!doConfig.bots || !doConfig.language) {
+    log('Incomplete lingo config', { token, doConfig });
     return new Response('', { status: 200 });
   }
 
   const config: LingoConfig = {
-    bots: [...(kvConfig?.bots ?? [])]
+    bots: [...doConfig.bots]
       .filter((v) => v !== undefined)
       .map((v) => v.toLowerCase()),
-    language: kvConfig?.language ?? 'english',
+    language: doConfig.language ?? 'english',
   };
 
   if (config.bots.includes(userTrimmed.toLowerCase())) {

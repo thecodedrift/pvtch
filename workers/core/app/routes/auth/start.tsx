@@ -2,7 +2,7 @@ import { redirect } from 'react-router';
 import type { Route } from './+types/start';
 import { cloudflareEnvironmentContext } from '@/context';
 
-export async function loader({ context }: Route.LoaderArgs) {
+export function loader({ context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
 
   const u = new URL('https://id.twitch.tv/oauth2/authorize');

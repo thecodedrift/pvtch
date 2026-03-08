@@ -1,8 +1,6 @@
 import type { Route } from './+types/progress.$token.$name.get';
 import { cloudflareEnvironmentContext } from '@/context';
-import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
-import { PROGRESS_KEY } from '@/lib/constants/progress';
 
 export async function loader({ params, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnvironmentContext);
@@ -14,12 +12,12 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     return Response.json({ error: 'Invalid token' }, { status: 400 });
   }
 
-  const fqn = `${PROGRESS_KEY}::${name}`;
-  const normalizedKey = normalizeKey(token, fqn);
-  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
-  const stub = env.PVTCH_BACKEND.get(cdo);
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
 
-  const value = await stub.get();
+  using progressPlugin = await stub.progress();
+  const value = await progressPlugin.get(name);
 
-  return Response.json({ _: value });
+  return Response.json({ _: value ?? '' });
 }

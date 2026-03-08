@@ -15,7 +15,7 @@ export async function handleDeprecatedRoute(
 
   if (existing) {
     // Already notified within 24h - return minimal 410
-    return new Response(null, { status: 410 });
+    return new Response(undefined, { status: 410 });
   }
 
   // First notification - set the key with 1-day TTL

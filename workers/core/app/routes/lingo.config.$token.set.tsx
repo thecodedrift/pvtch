@@ -1,15 +1,7 @@
 import type { Route } from './+types/lingo.config.$token.set';
 import { cloudflareEnvironmentContext } from '@/context';
-import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
-import type { TTLOptions } from '@@/do/backend';
 import { lingoConfig } from '@/lib/constants/lingo';
-
-const ID = 'lingo-config';
-const TTL_OPTIONS: TTLOptions = {
-  strategy: 'PRESERVE_ON_FETCH',
-  ttlMs: 30 * 24 * 60 * 60 * 1000, // 30 days
-};
 
 async function handleConfigSet(
   token: string,
@@ -25,11 +17,8 @@ async function handleConfigSet(
     );
   }
 
-  const normalizedKey = normalizeKey(token, ID);
   const value =
     typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue);
-  const cdo: DurableObjectId = env.PVTCH_BACKEND.idFromName(normalizedKey);
-  const stub = env.PVTCH_BACKEND.get(cdo);
 
   try {
     const result = lingoConfig.safeParse(JSON.parse(value) as unknown);
@@ -48,10 +37,14 @@ async function handleConfigSet(
     );
   }
 
-  // stubs hold their own storage per stub via sqlite
-  await stub.set(value, TTL_OPTIONS);
+  const parsed = JSON.parse(value) as { bots: string[]; language: string };
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
+  using lingoPlugin = await stub.lingo();
+  await lingoPlugin.setConfig(parsed);
 
-  return Response.json(JSON.parse(value) as unknown);
+  return Response.json(parsed);
 }
 
 // GET request - value from query params

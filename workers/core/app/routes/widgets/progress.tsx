@@ -145,7 +145,7 @@ export default function WidgetsProgress() {
 
   const updateUrl = useMemo(() => {
     if (!loaderData.authenticated) return '';
-    return `https://www.pvtch.com/progress/${loaderData.token}/${id}/set?value=UPDATEME`;
+    return `${globalThis.location.origin}/progress/${loaderData.token}/${id}/set?value=UPDATEME`;
   }, [loaderData, id]);
 
   const copyUrl = () => {

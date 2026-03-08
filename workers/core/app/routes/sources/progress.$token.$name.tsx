@@ -3,7 +3,6 @@ import { useLoaderData, useRevalidator, data } from 'react-router';
 import z from 'zod';
 import type { Route } from './+types/progress.$token.$name';
 import { cloudflareEnvironmentContext } from '@/context';
-import { normalizeKey } from '@/lib/normalize-key';
 import { isValidToken } from '@/lib/twitch-data';
 import { BasicBar } from '@/components/progress-bar';
 
@@ -84,20 +83,17 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
     Object.fromEntries(url.searchParams.entries())
   );
 
-  // Fetch current progress value from Durable Object
-  const progressKey = `progress-${name}`;
-  const progressNormalizedKey = normalizeKey(token, progressKey);
-  const progressCdo = env.PVTCH_BACKEND.idFromName(progressNormalizedKey);
-  const progressStub = env.PVTCH_BACKEND.get(progressCdo);
-  const progressString = await progressStub.get();
-
-  const progress = Number.parseFloat(progressString) || 0;
+  // Fetch current progress value from User DO
+  const stub = env.PVTCH_USER.get(
+    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+  );
+  using progressPlugin = await stub.progress();
+  const progress = (await progressPlugin.get(name)) ?? 0;
 
   return data({
     valid: true as const,
     token,
     name,
-    progressKey,
     config,
     progress,
   });
