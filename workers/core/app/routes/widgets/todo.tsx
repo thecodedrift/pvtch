@@ -405,8 +405,8 @@ export default function TodoWidget() {
             In OBS, add a <strong>Browser Source</strong> and paste the URL
             above. Recommended size: 400 &times; 600. Fonts scale relative to
             your browser source&apos;s height. To resize, set new height and
-            width in the browser source properties &mdash; dragging and resizing
-            inside OBS stretches pixels like an image, resulting in fuzzy text.
+            width in the browser source properties. Dragging and resizing inside
+            OBS stretches pixels like an image, resulting in fuzzy text.
           </p>
         </div>
 
@@ -414,25 +414,24 @@ export default function TodoWidget() {
           <h3>2. For Chat</h3>
           <div className="text-muted-foreground space-y-1">
             <div>
-              <strong>!{add} Fix the bug</strong> &mdash; Add a task
+              <strong>!{add} Fix the bug</strong> Add a task
             </div>
             <div>
-              <strong>!{add} Fix bug; Write tests</strong> &mdash; Add multiple
-              tasks (separated by semicolons)
+              <strong>!{add} Fix bug; Write tests</strong> Add multiple tasks
+              (separated by semicolons)
             </div>
             <div>
-              <strong>!{done}</strong> &mdash; Complete your first incomplete
-              task
+              <strong>!{done}</strong> Complete your first incomplete task
             </div>
             <div>
-              <strong>!{done} 2</strong> &mdash; Complete task #2
+              <strong>!{done} 2</strong> Complete task #2
             </div>
             <div>
-              <strong>!{done} 1;3</strong> &mdash; Complete tasks #1 and #3
+              <strong>!{done} 1;3</strong> Complete tasks #1 and #3
             </div>
             <div>
-              <strong>!{focus} 2</strong> &mdash; Highlight task #2 (bumps it
-              higher in your list)
+              <strong>!{focus} 2</strong> Highlight task #2 (bumps it higher in
+              your list)
             </div>
           </div>
         </div>
@@ -441,14 +440,13 @@ export default function TodoWidget() {
           <h3>3. For Streamers &amp; Mods</h3>
           <div className="text-muted-foreground space-y-1">
             <div>
-              <strong>!{reset}</strong> &mdash; Clear all tasks
+              <strong>!{reset}</strong> Clear all tasks
             </div>
             <div>
-              <strong>!{reset} @username</strong> &mdash; Clear one user&apos;s
-              tasks
+              <strong>!{reset} @username</strong> Clear one user&apos;s tasks
             </div>
             <div>
-              <strong>!{clear}</strong> &mdash; Remove completed tasks only
+              <strong>!{clear}</strong> Remove completed tasks only
             </div>
           </div>
           <p className="text-muted-foreground mt-1">
@@ -460,8 +458,8 @@ export default function TodoWidget() {
           <h3>4. Tips</h3>
           <ul className="text-muted-foreground list-disc ml-4 space-y-1">
             <li>
-              {count} tasks per user is the default limit &mdash; adjust it
-              above if needed
+              {count} tasks per user is the default limit. Adjust it above if
+              needed
             </li>
             <li>
               Tasks persist in the browser (localStorage) and survive page

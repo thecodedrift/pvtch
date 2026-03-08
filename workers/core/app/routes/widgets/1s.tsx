@@ -371,9 +371,9 @@ export default function Widgets1s() {
           <h3>2. How Viewers Vote</h3>
           <p className="text-muted-foreground">
             Viewers type a number in chat to vote (1, 2, 3...). Meme formats
-            work too &mdash; &quot;1111111&quot; counts as a vote for 1. If you
-            set choices above, viewers type the choice name instead. Voting
-            starts automatically when the first vote comes in.
+            work too. &quot;1111111&quot; counts as a vote for 1. If you set
+            choices above, viewers type the choice name instead. Voting starts
+            automatically when the first vote comes in.
           </p>
         </div>
 
@@ -381,23 +381,22 @@ export default function Widgets1s() {
           <h3>3. Mod Commands</h3>
           <div className="text-muted-foreground space-y-1">
             <div>
-              <strong>!1s timer 45/10</strong> &mdash; Set 45s vote window, 10s
-              cooldown
+              <strong>!1s timer 45/10</strong> Set 45s vote window, 10s cooldown
             </div>
             <div>
-              <strong>!1s vote one</strong> &mdash; One vote per person
+              <strong>!1s vote one</strong> One vote per person
             </div>
             <div>
-              <strong>!1s vote many</strong> &mdash; Allow repeat voting
+              <strong>!1s vote many</strong> Allow repeat voting
             </div>
             <div>
-              <strong>!1s list a, b, c</strong> &mdash; Set named choices
+              <strong>!1s list a, b, c</strong> Set named choices
             </div>
             <div>
-              <strong>!1s list</strong> &mdash; Clear choices (back to numbers)
+              <strong>!1s list</strong> Clear choices (back to numbers)
             </div>
             <div>
-              <strong>!1s reset</strong> &mdash; Clear all votes
+              <strong>!1s reset</strong> Clear all votes
             </div>
           </div>
           <p className="text-muted-foreground mt-1">
@@ -413,8 +412,7 @@ export default function Widgets1s() {
               30&ndash;60 seconds is a good voting window for most audiences
             </li>
             <li>
-              The top 4 options are shown &mdash; the rest are tallied but
-              hidden
+              The top 4 options are shown. The rest are tallied but hidden
             </li>
             <li>
               The overlay auto-starts when the first vote comes in, no manual
@@ -422,9 +420,9 @@ export default function Widgets1s() {
             </li>
             <li>
               To resize, set new height and width in the browser source
-              properties &mdash; dragging and resizing inside OBS stretches
-              pixels like an image, resulting in fuzzy text. Change the
-              height/width and you&apos;ll get a beautiful widget every time.
+              properties. Dragging and resizing inside OBS stretches pixels like
+              an image, resulting in fuzzy text. Change the height/width and
+              you&apos;ll get a beautiful widget every time.
             </li>
           </ul>
         </div>
