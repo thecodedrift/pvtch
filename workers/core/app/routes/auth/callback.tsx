@@ -120,15 +120,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       user.id
     );
     const appUrl = env.PVTCH_APP_URL || 'http://localhost:5173';
-    const redirectResponseWithToken = new Response(undefined, {
-      status: 302,
-      headers: {
-        Location: `${appUrl}/welcome`,
-        'Set-Cookie': `pvtch_token=${existing.token}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`,
-      },
-    });
+    const headers = new Headers();
+    headers.set('Location', `${appUrl}/welcome`);
+    headers.append(
+      'Set-Cookie',
+      `pvtch_token=${existing.token}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`
+    );
+    headers.append(
+      'Set-Cookie',
+      `pvtch_name=${encodeURIComponent(user.display_name)}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`
+    );
 
-    return redirectResponseWithToken;
+    return new Response(undefined, { status: 302, headers });
   }
 
   const twitchTokenData: TwitchUserData = {
@@ -149,13 +152,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   );
 
   const newUserAppUrl = env.PVTCH_APP_URL || 'http://localhost:5173';
-  const redirectResponseWithToken = new Response(undefined, {
-    status: 302,
-    headers: {
-      Location: `${newUserAppUrl}/welcome`,
-      'Set-Cookie': `pvtch_token=${twitchTokenData.token}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`,
-    },
-  });
+  const newHeaders = new Headers();
+  newHeaders.set('Location', `${newUserAppUrl}/welcome`);
+  newHeaders.append(
+    'Set-Cookie',
+    `pvtch_token=${twitchTokenData.token}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`
+  );
+  newHeaders.append(
+    'Set-Cookie',
+    `pvtch_name=${encodeURIComponent(twitchTokenData.display_name)}; Path=/; SameSite=Lax; ${cookieDomain} ${isSecure}`
+  );
 
-  return redirectResponseWithToken;
+  return new Response(undefined, { status: 302, headers: newHeaders });
 }
