@@ -112,7 +112,7 @@ async function handleTranslate(
     bots: [...(kvConfig?.bots ?? [])]
       .filter((v) => v !== undefined)
       .map((v) => v.toLowerCase()),
-    language: kvConfig?.language ?? 'en',
+    language: kvConfig?.language ?? 'english',
   };
 
   if (config.bots.includes(userTrimmed.toLowerCase())) {
@@ -142,7 +142,7 @@ async function handleTranslate(
 
   log('LLM Response:', { ...result });
 
-  if (isSameLanguage(config.language, result)) {
+  if (isSameLanguage(config.language, value, result)) {
     log('No translation needed. Language match');
     return new Response('', { status: 200 });
   }

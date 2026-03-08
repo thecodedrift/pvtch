@@ -39,7 +39,7 @@ function parseCookies(cookieHeader: string | null): Record<string, string> {
 
 const defaults = {
   bots: [] as string[],
-  language: 'en',
+  language: 'english',
 };
 
 type LingoConfig = typeof defaults;
@@ -150,7 +150,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const formData = await request.formData();
   const configKey = 'lingo-config';
   const botsRaw = (formData.get('bots') as string) ?? '';
-  const languageRaw = (formData.get('language') as string) ?? 'en';
+  const languageRaw = (formData.get('language') as string) ?? 'english';
 
   // Process bots list
   const bots = botsRaw
@@ -160,6 +160,13 @@ export async function action({ request, context }: Route.ActionArgs) {
     .slice(0, 15);
 
   const language = trimToLength(languageRaw, 60);
+
+  if (language.length < 3) {
+    return data(
+      { error: 'Language must be at least 3 characters' },
+      { status: 400 }
+    );
+  }
 
   const configValue = JSON.stringify({ bots, language });
 
@@ -286,9 +293,9 @@ export default function HelpersLingo() {
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   <FieldDescription>
-                    A two-letter language code (like "en" for English, "es" for
-                    Spanish, etc) or the full name of the language you speak.
-                    This is what you'll get replies in.
+                    The full name of your language (e.g. &quot;english&quot;,
+                    &quot;spanish&quot;, &quot;korean&quot;). At least 3
+                    characters. This is what you'll get replies in.
                   </FieldDescription>
                 </Field>
               )}

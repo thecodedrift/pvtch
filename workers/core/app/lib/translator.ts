@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeLanguage } from '@/lib/constants/languages';
 
 const MODEL = '@cf/qwen/qwen3-30b-a3b-fp8' as const;
 
@@ -15,19 +16,20 @@ You are a translation assistant.
 2. Translate the input text into the requested target language
 
 Rules:
-- Make an infomed attempt to identify the target language
+- Make an informed attempt to identify the target language
 - If the "input text" is already in the "target language", return it as-is with the detected language matching the target language
 - Preserve @usernames exactly as-is. They are treated as someone's name
 - Ignore kaomoji, Twitch emotes, emoticons, and smileys
 - Prefer natural, fluent translations over literal word-for-word
+- Return the base language name without regional variants (e.g. "Portuguese" not "Brazilian Portuguese", "Chinese" not "Mandarin Chinese")
 
 ## Output
 Your output should be JSON formatted as follows:
 
 \`\`\`
 {
-  "detected": "The detected language name (e.g. English, Korean, Tagalog, Spanish, etc)",
-  "detectedCode": "The detected ISO 639-3 language code (e.g. eng, kor, tgl, esp, etc)",
+  "detected": "The base language name (e.g. English, Korean, Tagalog, Spanish)",
+  "detectedCode": "The ISO 639-3 code (e.g. eng, kor, tgl, spa)",
   "translation": "The translated text"
 }
 \`\`\`
@@ -131,96 +133,31 @@ export const translate = async (
 
 export const isSameLanguage = (
   language: string,
+  input: string,
   translationResponse: TranslationResponse
 ): boolean => {
   if (!translationResponse.success) {
     return true;
   }
 
-  return (
-    translationResponse.data.detected.toLocaleLowerCase() ===
-    language.toLocaleLowerCase()
+  const target = normalizeLanguage(language);
+  const detectedByName = normalizeLanguage(translationResponse.data.detected);
+  const detectedByCode = normalizeLanguage(
+    translationResponse.data.detectedCode
   );
-};
 
-export const languageCodeToAnnotation = (code: string): string => {
-  const map = {
-    a: 'ᵃ',
-    b: 'ᵇ',
-    c: 'ᶜ',
-    d: 'ᵈ',
-    e: 'ᵉ',
-    f: 'ᶠ',
-    g: 'ᵍ',
-    h: 'ʰ',
-    i: 'ⁱ',
-    j: 'ʲ',
-    k: 'ᵏ',
-    l: 'ˡ',
-    m: 'ᵐ',
-    n: 'ⁿ',
-    o: 'ᵒ',
-    p: 'ᵖ',
-    q: '۹',
-    r: 'ʳ',
-    s: 'ˢ',
-    t: 'ᵗ',
-    u: 'ᵘ',
-    v: 'ᵛ',
-    w: 'ʷ',
-    x: 'ˣ',
-    y: 'ʸ',
-    z: 'ᶻ',
-    A: 'ᴬ',
-    B: 'ᴮ',
-    C: 'ᑦ',
-    D: 'ᴰ',
-    E: 'ᴱ',
-    F: 'ᶠ',
-    G: 'ᴳ',
-    H: 'ᴴ',
-    I: 'ᴵ',
-    J: 'ᴶ',
-    K: 'ᴷ',
-    L: 'ᴸ',
-    M: 'ᴹ',
-    N: 'ᴺ',
-    O: 'ᴼ',
-    P: 'ᴾ',
-    Q: '۹',
-    R: 'ᴿ',
-    S: 'ˢ',
-    T: 'ᵀ',
-    U: 'ᵁ',
-    V: 'ⱽ',
-    W: 'ᵂ',
-    X: 'ˣ',
-    Y: 'ʸ',
-    Z: 'ᶻ',
-    '0': '⁰',
-    '1': '¹',
-    '2': '²',
-    '3': '³',
-    '4': '⁴',
-    '5': '⁵',
-    '6': '⁶',
-    '7': '⁷',
-    '8': '⁸',
-    '9': '⁹',
-    '+': '⁺',
-    '-': '⁻',
-    '=': '⁼',
-    '(': '⁽',
-    ')': '⁾',
-    // Note: Not all characters have a standard superscript Unicode equivalent.
-  } as const;
+  // Compare normalized names: handles "en" vs "eng" vs "English" → all become "english"
+  if (target === detectedByName || target === detectedByCode) {
+    return true;
+  }
 
-  return [...code]
-    .map((char) => {
-      if (char in map) {
-        return map[char as keyof typeof map];
-      }
-      return char;
-    })
-    .join('');
+  // If the translation is identical to the input, there's nothing to show
+  if (
+    translationResponse.data.translation.trim().toLocaleLowerCase() ===
+    input.trim().toLocaleLowerCase()
+  ) {
+    return true;
+  }
+
+  return false;
 };
