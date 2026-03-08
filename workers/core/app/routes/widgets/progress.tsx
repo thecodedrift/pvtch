@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { BasicBar } from '@/components/progress-bar';
-import RequireTwitchLogin from '@/components/require-twitch-login';
+import { AuthGate } from '@/components/auth-gate';
 import { DEFAULTS } from '@/routes/sources/progress.$token.$name';
 
 function parseCookies(cookieHeader: string | null): Record<string, string> {
@@ -154,19 +154,30 @@ export default function WidgetsProgress() {
     toast.success('OBS URL copied to clipboard!');
   };
 
-  // Not authenticated - show login prompt
-  if (!loaderData.authenticated) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Progress Bar</h1>
-        <RequireTwitchLogin />
-      </div>
-    );
-  }
-
   return (
     <div className="prose dark:prose-invert max-w-none">
       <h1>Progress Bar</h1>
+
+      {/* Auth notice at top when not logged in */}
+      {!loaderData.authenticated && (
+        <div className="not-prose mb-6">
+          <AuthGate
+            authenticated={false}
+            reason={
+              <>
+                <span className="font-semibold text-foreground">
+                  Requires login
+                </span>{' '}
+                . Feel free to play around with the widget below. To use it on
+                your stream, you&apos;ll need to log in so we can generate your
+                unique OBS and API URLs.
+              </>
+            }
+          >
+            <></>
+          </AuthGate>
+        </div>
+      )}
 
       {/* Live Preview (sticky) */}
       <div className="sticky top-16 z-10 bg-background py-2 not-prose">
@@ -268,35 +279,37 @@ export default function WidgetsProgress() {
         </div>
       </div>
 
-      {/* URLs Section */}
-      <div className="mt-8 space-y-4 not-prose">
-        <Field>
-          <FieldLabel>OBS Browser Source URL</FieldLabel>
-          <div className="flex flex-row gap-2">
-            <Input type="password" readOnly value={obsUrl} />
-            <Button type="button" variant="default" onClick={copyUrl}>
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-        </Field>
+      {/* URLs Section - only visible when logged in */}
+      {loaderData.authenticated && (
+        <div className="mt-8 space-y-4 not-prose">
+          <Field>
+            <FieldLabel>OBS Browser Source URL</FieldLabel>
+            <div className="flex flex-row gap-2">
+              <Input type="password" readOnly value={obsUrl} />
+              <Button type="button" variant="default" onClick={copyUrl}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </Field>
 
-        <Field>
-          <FieldLabel>Update API URL</FieldLabel>
-          <div className="flex flex-row gap-2">
-            <Input type="password" readOnly value={updateUrl} />
-            <Button
-              type="button"
-              variant="default"
-              onClick={() => {
-                void navigator.clipboard.writeText(updateUrl);
-                toast.success('Update API URL copied to clipboard!');
-              }}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-        </Field>
-      </div>
+          <Field>
+            <FieldLabel>Update API URL</FieldLabel>
+            <div className="flex flex-row gap-2">
+              <Input type="password" readOnly value={updateUrl} />
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => {
+                  void navigator.clipboard.writeText(updateUrl);
+                  toast.success('Update API URL copied to clipboard!');
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </Field>
+        </div>
+      )}
 
       {/* How to Use Guide */}
       <div className="mt-10 space-y-6">
@@ -318,8 +331,8 @@ export default function WidgetsProgress() {
             <code>UPDATEME</code> with a number and hit the URL from your bot,
             StreamerBot, MixItUp, Firebot, or any tool that can make HTTP
             requests. Think of this widget as a progress{' '}
-            <strong>displayer</strong> &mdash; keep the value in whatever system
-            makes sense for you.
+            <strong>displayer</strong>. Keep the value in whatever system makes
+            sense for you.
           </p>
         </div>
 
@@ -332,9 +345,9 @@ export default function WidgetsProgress() {
             </li>
             <li>
               To resize, set new height and width in the browser source
-              properties &mdash; dragging and resizing inside OBS stretches
-              pixels like an image, resulting in fuzzy text. Change the
-              height/width and you&apos;ll get a beautiful widget every time.
+              properties. Dragging and resizing inside OBS stretches pixels like
+              an image, resulting in fuzzy text. Change the height/width and
+              you&apos;ll get a beautiful widget every time.
             </li>
           </ul>
         </div>

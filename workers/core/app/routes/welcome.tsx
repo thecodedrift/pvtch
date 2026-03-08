@@ -6,7 +6,6 @@ import {
   twitchDataKeyPrefix,
   type TwitchUserData,
 } from '@/lib/twitch-data';
-import RequireTwitchLogin from '@/components/require-twitch-login';
 
 function parseCookies(cookieHeader: string | null): Record<string, string> {
   if (!cookieHeader) return {};
@@ -23,7 +22,7 @@ export function meta(_args: Route.MetaArgs) {
     { title: 'Welcome to PVTCH' },
     {
       name: 'description',
-      content: 'Welcome to PVTCH — free tools for Twitch streamers.',
+      content: 'Welcome to PVTCH. Free tools for Twitch streamers.',
     },
   ];
 }
@@ -35,7 +34,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const userid = await isValidToken(token, env);
   if (!userid) {
-    return data({ authenticated: false as const, displayName: '' });
+    return data({ displayName: '' });
   }
 
   const userData = await env.PVTCH_ACCOUNTS.get<TwitchUserData>(
@@ -44,17 +43,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   );
 
   return data({
-    authenticated: true as const,
     displayName: userData?.display_name ?? env.DEV_TWITCH_USER_ID ?? '',
   });
 }
 
 export default function Welcome() {
-  const { authenticated, displayName } = useLoaderData<typeof loader>();
-
-  if (!authenticated) {
-    return <RequireTwitchLogin />;
-  }
+  const { displayName } = useLoaderData<typeof loader>();
 
   return (
     <div className="space-y-8">
@@ -79,6 +73,26 @@ export default function Welcome() {
             <p className="mt-1 text-sm text-muted-foreground">
               Customizable progress bars for OBS. Track sub goals, donations, or
               any metric with real-time updates.
+            </p>
+          </Link>
+          <Link
+            to="/widgets/todo"
+            className="rounded-lg border border-border p-4 hover:bg-accent transition-colors"
+          >
+            <h3 className="font-medium">Chat Tasks</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Collaborative task list overlay for your stream. Viewers add and
+              complete tasks via chat commands.
+            </p>
+          </Link>
+          <Link
+            to="/widgets/1s"
+            className="rounded-lg border border-border p-4 hover:bg-accent transition-colors"
+          >
+            <h3 className="font-medium">Quick Poll</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Real-time chat polls for your stream. Viewers type their vote in
+              chat and results display as animated bar charts.
             </p>
           </Link>
           <Link

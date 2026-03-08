@@ -1,10 +1,14 @@
 import { Link } from 'react-router';
-import { GithubIcon, ExternalLink, Gauge, Languages, Sparkles } from 'lucide-react';
+import {
+  GithubIcon,
+  ExternalLink,
+  Gauge,
+  Languages,
+  Sparkles,
+} from 'lucide-react';
 import type { Route } from './+types/_index';
 import { Button } from '@/components/ui/button';
 import { PvtchLogo } from '@/components/icons/pvtch-logo';
-import { TwitchIcon } from '@/components/ui/icons/twitch';
-import { useEffect, useState } from 'react';
 
 export function meta(_args: Route.MetaArgs) {
   return [
@@ -14,7 +18,10 @@ export function meta(_args: Route.MetaArgs) {
       content:
         'Free, open-source streaming tools for Twitch. Customizable OBS progress bars, AI-powered chat translation, and more. No subscriptions, no hidden fees.',
     },
-    { property: 'og:title', content: 'PVTCH - Free Open Source Tools for Twitch Streamers' },
+    {
+      property: 'og:title',
+      content: 'PVTCH - Free Open Source Tools for Twitch Streamers',
+    },
     {
       property: 'og:description',
       content:
@@ -23,24 +30,6 @@ export function meta(_args: Route.MetaArgs) {
     { property: 'og:type', content: 'website' },
     { name: 'twitter:card', content: 'summary_large_image' },
   ];
-}
-
-function useLoginUrl() {
-  const [loginUrl, setLoginUrl] = useState<string>('#');
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const currentUrl = new URL(window.location.href);
-    const url = new URL(
-      currentUrl.hostname === 'localhost'
-        ? 'http://localhost:5173'
-        : 'https://www.pvtch.com',
-    );
-    url.pathname = '/auth/start';
-    setLoginUrl(url.toString());
-  }, []);
-
-  return loginUrl;
 }
 
 const features = [
@@ -69,8 +58,6 @@ const features = [
 ];
 
 export default function Index() {
-  const loginUrl = useLoginUrl();
-
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -88,32 +75,38 @@ export default function Index() {
 
             {/* Heading */}
             <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-              Free Tools for{' '}
-              <span className="text-brand">Streamers</span>
+              Free Tools for <span className="text-brand">Streamers</span>
             </h1>
 
             {/* Subheading */}
             <p className="mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
               Enhance your Twitch streams with powerful, easy-to-use widgets and
-              helpers. No subscriptions, no hidden fees — just tools that work.
+              helpers. No subscriptions, no hidden fees. Just tools that work.
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col gap-4 sm:flex-row animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
               <Button
                 size="lg"
-                className="bg-[#9146FF] text-white hover:bg-[#7c3aed] gap-2 text-base px-8"
+                className="bg-brand text-white hover:bg-brand/90 gap-2 text-base px-8"
                 asChild
               >
-                <a href={loginUrl}>
-                  <TwitchIcon size={20} />
-                  Get Started with Twitch
-                </a>
+                <Link to="/widgets/progress">Explore Tools</Link>
               </Button>
-              <Button size="lg" variant="outline" className="gap-2 text-base" asChild>
-                <Link to="/widgets/progress">
-                  Explore Tools
-                </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                className="gap-2 text-base"
+                asChild
+              >
+                <a
+                  href="https://github.com/thecodedrift/pvtch"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <GithubIcon className="size-5" />
+                  View on GitHub
+                </a>
               </Button>
             </div>
           </div>
@@ -196,9 +189,7 @@ export default function Index() {
                 </a>
               </Button>
               <Button size="lg" variant="ghost" className="gap-2" asChild>
-                <Link to="/howto/deploy-your-own">
-                  Deploy Your Own
-                </Link>
+                <Link to="/howto/deploy-your-own">Deploy Your Own</Link>
               </Button>
             </div>
           </div>
@@ -217,13 +208,10 @@ export default function Index() {
           </p>
           <Button
             size="lg"
-            className="bg-[#9146FF] text-white hover:bg-[#7c3aed] gap-2 text-base px-8"
+            className="bg-brand text-white hover:bg-brand/90 gap-2 text-base px-8"
             asChild
           >
-            <a href={loginUrl}>
-              <TwitchIcon size={20} />
-              Login with Twitch
-            </a>
+            <Link to="/widgets/progress">Explore Tools</Link>
           </Button>
         </div>
       </section>

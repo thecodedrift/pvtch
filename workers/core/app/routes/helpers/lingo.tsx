@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import RequireTwitchLogin from '@/components/require-twitch-login';
+import { AuthGate } from '@/components/auth-gate';
 import type { TTLOptions } from '@@/do/backend';
 
 // Firebot setup images
@@ -46,7 +46,7 @@ type LingoConfig = typeof defaults;
 
 const trimToLength = (str: string, maxLength: number) => {
   const segmenter = new Intl.Segmenter('en-US', { granularity: 'grapheme' });
-  const chunks = Array.from(segmenter.segment(str));
+  const chunks = [...segmenter.segment(str)];
   if (chunks.length <= maxLength) {
     return str;
   }
@@ -63,7 +63,7 @@ const parseConfig = (configString?: string): LingoConfig => {
 
   let parsed: Partial<LingoConfig> = {};
   try {
-    parsed = JSON.parse(configString);
+    parsed = JSON.parse(configString) as Partial<LingoConfig>;
   } catch {
     // ignore parse errors
   }
@@ -192,14 +192,14 @@ export default function HelpersLingo() {
       bots: config.bots.join(', '),
       language: config.language,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       if (!loaderData.authenticated) return;
 
       const formData = new FormData();
       formData.append('bots', value.bots);
       formData.append('language', value.language);
 
-      fetcher.submit(formData, { method: 'POST' });
+      void fetcher.submit(formData, { method: 'POST' });
       toast.success('Lingo configuration saved!');
     },
   });
@@ -212,121 +212,131 @@ export default function HelpersLingo() {
     });
   }, [config]);
 
-  // Not authenticated - show login prompt
-  if (!loaderData.authenticated) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Lingo Translator</h1>
-        <RequireTwitchLogin />
-      </div>
-    );
-  }
-
-  // Generate URLs for display
-  const translateAllUrl = `https://www.pvtch.com/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`;
+  // Generate URLs for display (placeholder when not authenticated)
+  const translateAllUrl = loaderData.authenticated
+    ? `https://www.pvtch.com/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`
+    : 'https://www.pvtch.com/lingo/translate/YOUR_TOKEN/user=SENDINGUSER&message=MESSAGEHERE';
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Lingo Translator</h1>
       <p className="text-muted-foreground mb-6">
-        Configure your translation settings here.
+        Real-time translation for your Twitch chat. Connect with viewers who
+        speak different languages by auto-translating their messages using
+        well-established language models.
       </p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          form.handleSubmit();
-        }}
+      {/* Config + URL section - requires auth */}
+      <AuthGate
+        authenticated={loaderData.authenticated}
+        reason={
+          <>
+            <span className="font-semibold text-foreground">
+              Requires login
+            </span>{' '}
+            . We need to know who you are to help prevent abuse of the
+            translation service and to save your language preferences.
+          </>
+        }
       >
-        <div className="flex flex-col gap-6">
-          <form.Field
-            name="bots"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="bots">Ignored Bots &amp; Users</FieldLabel>
-                <Input
-                  id="bots"
-                  autoComplete="off"
-                  placeholder="yourbot, anotherbot, yetanotherbot"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                <FieldDescription>
-                  Any bots or users you want to ignore. Messages from these
-                  users will never be translated. Separate names with commas.
-                  (max 15)
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <form.Field
-            name="language"
-            children={(field) => (
-              <Field>
-                <FieldLabel htmlFor="language">Your Language</FieldLabel>
-                <Input
-                  id="language"
-                  autoComplete="off"
-                  placeholder="english"
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                <FieldDescription>
-                  A two-letter language code (like "en" for English, "es" for
-                  Spanish, etc) or the full name of the language you speak. This
-                  is what you'll get replies in.
-                </FieldDescription>
-              </Field>
-            )}
-          />
-          <div className="flex flex-row items-center justify-end">
-            <Button
-              variant="action"
-              type="submit"
-              disabled={fetcher.state !== 'idle'}
-            >
-              {fetcher.state !== 'idle' ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        </div>
-      </form>
-
-      {/* URLs Section */}
-      <div className="mt-8 space-y-4">
-        <Field>
-          <FieldLabel>Translate All URL</FieldLabel>
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              readOnly
-              value={translateAllUrl}
-              className="flex-1"
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void form.handleSubmit();
+          }}
+        >
+          <div className="flex flex-col gap-6">
+            <form.Field
+              name="bots"
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor="bots">
+                    Ignored Bots &amp; Users
+                  </FieldLabel>
+                  <Input
+                    id="bots"
+                    autoComplete="off"
+                    placeholder="yourbot, anotherbot, yetanotherbot"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                  <FieldDescription>
+                    Any bots or users you want to ignore. Messages from these
+                    users will never be translated. Separate names with commas.
+                    (max 15)
+                  </FieldDescription>
+                </Field>
+              )}
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                navigator.clipboard.writeText(translateAllUrl);
-                toast.success('URL copied to clipboard');
-              }}
-            >
-              <Copy className="size-4" />
-            </Button>
+            <form.Field
+              name="language"
+              children={(field) => (
+                <Field>
+                  <FieldLabel htmlFor="language">Your Language</FieldLabel>
+                  <Input
+                    id="language"
+                    autoComplete="off"
+                    placeholder="english"
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                  <FieldDescription>
+                    A two-letter language code (like "en" for English, "es" for
+                    Spanish, etc) or the full name of the language you speak.
+                    This is what you'll get replies in.
+                  </FieldDescription>
+                </Field>
+              )}
+            />
+            <div className="flex flex-row items-center justify-end">
+              <Button
+                variant="action"
+                type="submit"
+                disabled={fetcher.state !== 'idle'}
+              >
+                {fetcher.state === 'idle' ? 'Save' : 'Saving...'}
+              </Button>
+            </div>
           </div>
-          <FieldDescription>
-            Translates a message to your configured language (only if it's in a
-            different language)
-          </FieldDescription>
-        </Field>
-      </div>
+        </form>
 
-      {/* Setup Guide Section */}
+        {/* URLs Section */}
+        <div className="mt-8 space-y-4">
+          <Field>
+            <FieldLabel>Translate All URL</FieldLabel>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                readOnly
+                value={translateAllUrl}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  void navigator.clipboard.writeText(translateAllUrl);
+                  toast.success('URL copied to clipboard');
+                }}
+              >
+                <Copy className="size-4" />
+              </Button>
+            </div>
+            <FieldDescription>
+              Translates a message to your configured language (only if it's in
+              a different language)
+            </FieldDescription>
+          </Field>
+        </div>
+      </AuthGate>
+
+      {/* Setup Guide Section - always visible */}
       <SetupGuide translateUrl={translateAllUrl} />
     </div>
   );
