@@ -6,6 +6,7 @@ import { Copy } from 'lucide-react';
 import type { Route } from './+types/lingo';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
+import { isKnownLanguage } from '@/lib/constants/languages';
 import { isValidToken, DEV_TOKEN } from '@/lib/twitch-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,9 +162,12 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   const language = trimToLength(languageRaw, 60);
 
-  if (language.length < 3) {
+  if (!isKnownLanguage(language)) {
     return data(
-      { error: 'Language must be at least 3 characters' },
+      {
+        error:
+          'Unrecognized language. Use a language name like "english" or a code like "en".',
+      },
       { status: 400 }
     );
   }
@@ -280,6 +284,20 @@ export default function HelpersLingo() {
             />
             <form.Field
               name="language"
+              validators={{
+                onBlur: ({ value }) => {
+                  if (!value.trim()) return 'Language is required';
+                  if (!isKnownLanguage(value))
+                    return 'Unrecognized language. Use a name like "english" or a code like "en".';
+                  return undefined;
+                },
+                onSubmit: ({ value }) => {
+                  if (!value.trim()) return 'Language is required';
+                  if (!isKnownLanguage(value))
+                    return 'Unrecognized language. Use a name like "english" or a code like "en".';
+                  return undefined;
+                },
+              }}
               children={(field) => (
                 <Field>
                   <FieldLabel htmlFor="language">Your Language</FieldLabel>
@@ -292,11 +310,18 @@ export default function HelpersLingo() {
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
-                  <FieldDescription>
-                    The full name of your language (e.g. &quot;english&quot;,
-                    &quot;spanish&quot;, &quot;korean&quot;). At least 3
-                    characters. This is what you'll get replies in.
-                  </FieldDescription>
+                  {field.state.meta.errors.length > 0 ? (
+                    <p className="text-sm text-destructive">
+                      {field.state.meta.errors[0]}
+                    </p>
+                  ) : (
+                    <FieldDescription>
+                      The full name of your language (e.g. &quot;english&quot;,
+                      &quot;spanish&quot;, &quot;korean&quot;) or a language
+                      code (e.g. &quot;eng&quot;, &quot;spa&quot;,
+                      &quot;kor&quot;). This is what you'll get replies in.
+                    </FieldDescription>
+                  )}
                 </Field>
               )}
             />

@@ -224,3 +224,13 @@ export const normalizeLanguage = (input: string): string => {
   const lower = input.toLocaleLowerCase().trim();
   return CODE_TO_NAME[lower] ?? lower;
 };
+
+/**
+ * Check if a language identifier matches a known language.
+ *
+ * Accepts ISO 639-1 ("en"), ISO 639-3 ("eng"), or a full name ("English").
+ */
+export const isKnownLanguage = (input: string): boolean => {
+  const lower = input.toLocaleLowerCase().trim();
+  return lower in CODE_TO_NAME;
+};
