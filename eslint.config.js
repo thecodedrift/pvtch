@@ -5,7 +5,13 @@ import prettierConfig from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/', 'dist/', 'build/', '.wrangler/'],
+    ignores: [
+      'node_modules/',
+      'dist/',
+      'build/',
+      '.wrangler/',
+      '**/worker-configuration.d.ts',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
