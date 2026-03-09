@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import { TwitchIcon } from '@/components/ui/icons/twitch';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,7 +25,13 @@ export function useLoginUrl() {
   return loginUrl;
 }
 
-export const TwitchLogin = () => {
+export const TwitchLogin = ({
+  isPrivate = false,
+  isAllowed = true,
+}: {
+  isPrivate?: boolean;
+  isAllowed?: boolean;
+}) => {
   const [userToken, , removeUserToken] = useCookie('pvtch_token');
   const [userName, , removeUserName] = useCookie('pvtch_name');
   const loginUrl = useLoginUrl();
@@ -40,6 +46,17 @@ export const TwitchLogin = () => {
       globalThis.window.location.reload();
     }
   }, [removeUserToken, removeUserName]);
+
+  if (isLoggedIn && isPrivate && !isAllowed) {
+    return (
+      <Button variant="ghost" className="h-9 gap-1.5 px-3 text-sm" asChild>
+        <a href="/private">
+          <X size={16} />
+          {displayName ?? 'Logged in'}
+        </a>
+      </Button>
+    );
+  }
 
   if (isLoggedIn) {
     return (

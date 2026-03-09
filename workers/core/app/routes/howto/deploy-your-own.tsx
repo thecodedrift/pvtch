@@ -404,6 +404,36 @@ pnpm run deploy`}
         </Step>
       </div>
 
+      {/* Locking Down Your Instance */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold mb-4">Locking Down Your Instance</h2>
+        <p className="text-muted-foreground mb-4">
+          By default, anyone can log in and use your PVTCH instance. To restrict
+          access to specific Twitch users, set the{' '}
+          <code className="bg-muted px-1 rounded">ALLOWED_USERS</code>{' '}
+          environment variable.
+        </p>
+        <CodeBlock>
+          {`# In your .dev.vars (local) or Cloudflare dashboard (production)
+ALLOWED_USERS=your_username,friend_username,another_user`}
+        </CodeBlock>
+        <div className="mt-4 space-y-2 text-muted-foreground text-sm">
+          <p>
+            When set, only users whose Twitch username is in the comma-separated
+            list can access widgets and OBS sources. Other users who log in will
+            see an indicator that the instance is private.
+          </p>
+          <p>
+            To set this in production via the Cloudflare dashboard: go to
+            Workers &rarr; your worker &rarr; Settings &rarr; Variables and
+            Secrets, and add{' '}
+            <code className="bg-muted px-1 rounded">ALLOWED_USERS</code> with
+            your comma-separated usernames. Changes take effect immediately.
+          </p>
+          <p>Leave it empty or unset to keep your instance open to everyone.</p>
+        </div>
+      </div>
+
       {/* Troubleshooting */}
       <div className="mb-12">
         <h2 className="text-2xl font-bold mb-4">Troubleshooting</h2>

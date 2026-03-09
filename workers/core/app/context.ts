@@ -20,6 +20,18 @@ export interface TwitchUser {
   id: string;
   login: string;
   displayName: string;
+  token: string;
 }
 
 export const userContext = createContext<TwitchUser>();
+
+/**
+ * Context for instance-level access control.
+ * Set in auth middleware, accessible in loaders/actions.
+ */
+export interface InstanceAccess {
+  isPrivate: boolean; // ALLOWED_USERS is set and non-empty
+  isAllowed: boolean; // user is on the allow list (or instance is open)
+}
+
+export const instanceAccessContext = createContext<InstanceAccess>();

@@ -1,21 +1,6 @@
 import { Link, useLoaderData, data } from 'react-router';
 import type { Route } from './+types/welcome';
-import { cloudflareEnvironmentContext } from '@/context';
-import {
-  isValidToken,
-  twitchDataKeyPrefix,
-  type TwitchUserData,
-} from '@/lib/twitch-data';
-
-function parseCookies(cookieHeader: string | null): Record<string, string> {
-  if (!cookieHeader) return {};
-  return Object.fromEntries(
-    cookieHeader.split(';').map((c) => {
-      const [key, ...val] = c.trim().split('=');
-      return [key, val.join('=')];
-    })
-  );
-}
+import { userContext } from '@/context';
 
 export function meta(_args: Route.MetaArgs) {
   return [
@@ -27,23 +12,10 @@ export function meta(_args: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-  const env = context.get(cloudflareEnvironmentContext);
-  const cookies = parseCookies(request.headers.get('Cookie'));
-  const token = cookies['pvtch_token'];
-
-  const userid = await isValidToken(token, env);
-  if (!userid) {
-    return data({ displayName: '' });
-  }
-
-  const userData = await env.PVTCH_ACCOUNTS.get<TwitchUserData>(
-    `${twitchDataKeyPrefix}${userid}`,
-    'json'
-  );
-
+export function loader({ context }: Route.LoaderArgs) {
+  const user = context.get(userContext);
   return data({
-    displayName: userData?.display_name ?? env.DEV_TWITCH_USER_ID ?? '',
+    displayName: user?.displayName ?? '',
   });
 }
 

@@ -19,6 +19,9 @@ export default [
     route('howto/deploy-your-own', './routes/howto/deploy-your-own.tsx'),
   ]),
 
+  // Private instance page (no layout)
+  route('private', './routes/private.tsx'),
+
   // OBS sources (no layout - minimal HTML for embedding)
   route(
     'sources/progress/:token/:name',

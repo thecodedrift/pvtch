@@ -1,5 +1,6 @@
 import type { Route } from './+types/1s.$channel';
-import { useLoaderData, data } from 'react-router';
+import { useLoaderData, data, redirect } from 'react-router';
+import { cloudflareEnvironmentContext } from '@/context';
 import { useComfy, type ComfyEvents } from '@/hooks/use-comfy';
 import {
   useCallback,
@@ -169,13 +170,20 @@ const fakeflags = {
 };
 
 // Loader: fetch url param to loader data, before initializing comfy
-// eslint-disable-next-line @typescript-eslint/require-await
-export async function loader({
-  request,
-  params,
-  context: _context,
-}: Route.LoaderArgs) {
+export function loader({ params, context }: Route.LoaderArgs) {
   const { channel } = params;
+
+  // Check instance access control
+  const env = context.get(cloudflareEnvironmentContext);
+  const allowedUsersRaw = env.ALLOWED_USERS ?? '';
+  if (allowedUsersRaw.length > 0) {
+    const allowedUsers = allowedUsersRaw
+      .split(',')
+      .map((u) => u.trim().toLowerCase());
+    if (!allowedUsers.includes(channel.toLowerCase())) {
+      return redirect('/private');
+    }
+  }
 
   return data({
     channel,
@@ -351,7 +359,12 @@ export default function TodoSource() {
   // Reset demo state when the voting cycle completes
   const prevVotingState = useRef(votingState);
   useEffect(() => {
-    if (isDemo && demoRunning && prevVotingState.current === 'locked' && votingState === 'ready') {
+    if (
+      isDemo &&
+      demoRunning &&
+      prevVotingState.current === 'locked' &&
+      votingState === 'ready'
+    ) {
       resetVotes();
       setDemoRunning(false);
     }
@@ -488,8 +501,6 @@ export default function TodoSource() {
     .map(([option, votes]) => ({ option, votes }));
 
   const totalVotes = options.reduce((total, { votes }) => total + votes, 0);
-
-
 
   return (
     <div

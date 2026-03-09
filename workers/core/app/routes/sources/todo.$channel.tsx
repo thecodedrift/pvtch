@@ -1,5 +1,6 @@
 import type { Route } from './+types/todo.$channel';
-import { useLoaderData, data } from 'react-router';
+import { useLoaderData, data, redirect } from 'react-router';
+import { cloudflareEnvironmentContext } from '@/context';
 import { nanoid } from 'nanoid';
 import { useComfy, type ComfyEvents } from '@/hooks/use-comfy';
 import React, {
@@ -220,6 +221,18 @@ const paramsParser = z.object({
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function loader({ params, context }: Route.LoaderArgs) {
   const { channel } = params;
+
+  // Check instance access control
+  const env = context.get(cloudflareEnvironmentContext);
+  const allowedUsersRaw = env.ALLOWED_USERS ?? '';
+  if (allowedUsersRaw.length > 0) {
+    const allowedUsers = allowedUsersRaw
+      .split(',')
+      .map((u) => u.trim().toLowerCase());
+    if (!allowedUsers.includes(channel.toLowerCase())) {
+      return redirect('/private');
+    }
+  }
 
   return data({
     channel,

@@ -1,12 +1,15 @@
 import { useMemo, useEffect } from 'react';
-import { useFetcher, useLoaderData, data } from 'react-router';
+import { useFetcher, useLoaderData, data, redirect } from 'react-router';
 import { useForm } from '@tanstack/react-form';
 import { toast } from 'sonner';
 import type { Route } from './+types/lingo';
-import { cloudflareEnvironmentContext } from '@/context';
+import {
+  cloudflareEnvironmentContext,
+  instanceAccessContext,
+  userContext,
+} from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import { isKnownLanguage } from '@/lib/constants/languages';
-import { isValidToken, DEV_TOKEN } from '@/lib/twitch-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
@@ -24,17 +27,6 @@ import mixitupChatReceived from './_lingo-assets/mixitup/chat_received.png';
 import mixitupSpecialIdentifier from './_lingo-assets/mixitup/special_identifier.png';
 import mixitupWebRequest from './_lingo-assets/mixitup/web_request.png';
 import mixitupConditionalChat from './_lingo-assets/mixitup/conditional_chat.png';
-
-// Helper to parse cookies from request
-function parseCookies(cookieHeader: string | null): Record<string, string> {
-  if (!cookieHeader) return {};
-  return Object.fromEntries(
-    cookieHeader.split(';').map((c) => {
-      const [key, ...val] = c.trim().split('=');
-      return [key, val.join('=')];
-    })
-  );
-}
 
 const defaults = {
   bots: [] as string[],
@@ -93,34 +85,29 @@ export function meta(_args: Route.MetaArgs) {
   ];
 }
 
-// Loader: fetch config from Durable Object using token from cookie
-export async function loader({ request, context }: Route.LoaderArgs) {
+export async function loader({ context }: Route.LoaderArgs) {
+  const access = context.get(instanceAccessContext);
+  if (access?.isPrivate && !access?.isAllowed) {
+    return redirect('/private');
+  }
+
+  const user = context.get(userContext);
+  if (!user) {
+    return data({ authenticated: false as const });
+  }
+
   const env = context.get(cloudflareEnvironmentContext);
-  const cookies = parseCookies(request.headers.get('Cookie'));
-  const token =
-    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
-
-  // If no token, return unauthenticated state
-  if (!token) {
-    return data({ authenticated: false as const });
-  }
-
-  // Validate token
-  const userid = await isValidToken(token, env);
-  if (!userid) {
-    return data({ authenticated: false as const });
-  }
 
   // Fetch config from User DO
   const stub = env.PVTCH_USER.get(
-    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+    env.PVTCH_USER.idFromName(`twitch:${user.id}`)
   );
   using lingoPlugin = await stub.lingo();
   let config = await lingoPlugin.getConfig();
 
   // Temporary migration: pull from old DO if no config exists yet
   if (!config) {
-    const oldKey = normalizeKey(token, 'lingo-config');
+    const oldKey = normalizeKey(user.token, 'lingo-config');
     const oldStub = env.PVTCH_BACKEND.get(env.PVTCH_BACKEND.idFromName(oldKey));
     const oldConfigString = await oldStub.get();
     if (oldConfigString && oldConfigString.length > 0) {
@@ -132,7 +119,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return data({
     authenticated: true as const,
-    token,
+    token: user.token,
     hasConfig: config !== undefined,
     config: config ?? defaults,
   });
@@ -140,23 +127,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 // Action: save config to Durable Object
 export async function action({ request, context }: Route.ActionArgs) {
-  const env = context.get(cloudflareEnvironmentContext);
-  const cookies = parseCookies(request.headers.get('Cookie'));
-  const token =
-    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
-
-  if (!token) {
+  const user = context.get(userContext);
+  if (!user) {
     return data(
       { success: false, error: 'Not authenticated' },
       { status: 401 }
     );
   }
 
-  const userid = await isValidToken(token, env);
-  if (!userid) {
-    return data({ success: false, error: 'Invalid token' }, { status: 400 });
-  }
-
+  const env = context.get(cloudflareEnvironmentContext);
   const formData = await request.formData();
   const botsRaw = (formData.get('bots') as string) ?? '';
   const languageRaw = (formData.get('language') as string) ?? 'english';
@@ -182,7 +161,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   // Save to User DO
   const stub = env.PVTCH_USER.get(
-    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+    env.PVTCH_USER.idFromName(`twitch:${user.id}`)
   );
   using lingoPlugin = await stub.lingo();
   await lingoPlugin.setConfig({ bots, language });

@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
-import { useLoaderData, useRevalidator, data } from 'react-router';
+import { useLoaderData, useRevalidator, data, redirect } from 'react-router';
 import z from 'zod';
 import type { Route } from './+types/progress.$token.$name';
 import { cloudflareEnvironmentContext } from '@/context';
-import { isValidToken } from '@/lib/twitch-data';
+import {
+  isValidToken,
+  twitchDataKeyPrefix,
+  type TwitchUserData,
+} from '@/lib/twitch-data';
 import { BasicBar } from '@/components/progress-bar';
 
 const POLL_INTERVAL = 3000; // ms
@@ -75,6 +79,21 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
       { valid: false as const, error: 'Invalid token' },
       { status: 400 }
     );
+  }
+
+  // Check instance access control
+  const allowedUsersRaw = env.ALLOWED_USERS ?? '';
+  if (allowedUsersRaw.length > 0) {
+    const allowedUsers = allowedUsersRaw
+      .split(',')
+      .map((u) => u.trim().toLowerCase());
+    const userData = await env.PVTCH_ACCOUNTS.get<TwitchUserData>(
+      `${twitchDataKeyPrefix}${userid}`,
+      'json'
+    );
+    if (!userData || !allowedUsers.includes(userData.login.toLowerCase())) {
+      return redirect('/private');
+    }
   }
 
   // Parse config from URL search params

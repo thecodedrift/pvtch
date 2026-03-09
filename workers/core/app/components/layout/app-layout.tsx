@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router';
+import { Link, Outlet, useLocation, useLoaderData, data } from 'react-router';
+import type { Route } from './+types/app-layout';
 import {
   ChevronDown,
   ChevronRight,
@@ -15,6 +16,18 @@ import { Button } from '@/components/ui/button';
 import { TwitchLogin } from '@/components/twitch-login';
 import { PvtchLogo } from '@/components/icons/pvtch-logo';
 import { cn } from '@/lib/utils';
+import { authMiddleware } from '@/middleware/auth';
+import { instanceAccessContext } from '@/context';
+
+export const middleware: Route.MiddlewareFunction[] = [authMiddleware];
+
+export function loader({ context }: Route.LoaderArgs) {
+  const access = context.get(instanceAccessContext);
+  return data({
+    isPrivate: access?.isPrivate ?? false,
+    isAllowed: access?.isAllowed ?? true,
+  });
+}
 
 // Navigation structure
 const navigation = [
@@ -129,6 +142,7 @@ function ThemeToggle() {
 
 export default function AppLayout() {
   const location = useLocation();
+  const loaderData = useLoaderData<typeof loader>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -174,7 +188,10 @@ export default function AppLayout() {
               </Button>
             </a>
             <ThemeToggle />
-            <TwitchLogin />
+            <TwitchLogin
+              isPrivate={loaderData.isPrivate}
+              isAllowed={loaderData.isAllowed}
+            />
           </div>
         </div>
       </header>

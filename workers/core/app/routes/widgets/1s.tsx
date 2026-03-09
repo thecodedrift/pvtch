@@ -1,30 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useLoaderData, data } from 'react-router';
+import { useLoaderData, data, redirect } from 'react-router';
 import { toast } from 'sonner';
 import { Copy } from 'lucide-react';
 import { RgbaStringColorPicker } from 'react-colorful';
 import type { Route } from './+types/1s';
-import { cloudflareEnvironmentContext } from '@/context';
-import {
-  isValidToken,
-  DEV_TOKEN,
-  twitchDataKeyPrefix,
-  type TwitchUserData,
-} from '@/lib/twitch-data';
+import { instanceAccessContext, userContext } from '@/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
-
-function parseCookies(cookieHeader: string | null): Record<string, string> {
-  if (!cookieHeader) return {};
-  return Object.fromEntries(
-    cookieHeader.split(';').map((c) => {
-      const [key, ...val] = c.trim().split('=');
-      return [key, val.join('=')];
-    })
-  );
-}
 
 const DEFAULTS = {
   bg: 'rgb(34, 34, 34)',
@@ -106,29 +90,20 @@ export function meta(_args: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-  const env = context.get(cloudflareEnvironmentContext);
-  const cookies = parseCookies(request.headers.get('Cookie'));
-  const token =
-    cookies['pvtch_token'] || (env.DEV_TWITCH_USER_ID ? DEV_TOKEN : undefined);
-
-  if (!token) {
-    return data({ authenticated: false as const, channel: '' });
+export function loader({ context }: Route.LoaderArgs) {
+  const access = context.get(instanceAccessContext);
+  if (access?.isPrivate && !access?.isAllowed) {
+    return redirect('/private');
   }
 
-  const userid = await isValidToken(token, env);
-  if (!userid) {
+  const user = context.get(userContext);
+  if (!user) {
     return data({ authenticated: false as const, channel: '' });
   }
-
-  const userData = await env.PVTCH_ACCOUNTS.get<TwitchUserData>(
-    `${twitchDataKeyPrefix}${userid}`,
-    'json'
-  );
 
   return data({
     authenticated: true as const,
-    channel: userData?.login ?? env.DEV_TWITCH_USER_ID ?? '',
+    channel: user.login,
   });
 }
 
