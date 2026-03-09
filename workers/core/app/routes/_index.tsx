@@ -4,6 +4,8 @@ import {
   ExternalLink,
   Gauge,
   Languages,
+  ListChecks,
+  BarChart3,
   Sparkles,
 } from 'lucide-react';
 import type { Route } from './+types/_index';
@@ -41,10 +43,24 @@ const features = [
     href: '/widgets/progress',
   },
   {
+    icon: ListChecks,
+    title: 'Chat Tasks',
+    description:
+      'Collaborative task list overlay. Viewers add and complete tasks via chat commands.',
+    href: '/widgets/todo',
+  },
+  {
+    icon: BarChart3,
+    title: 'Quick Poll',
+    description:
+      'Real-time chat polls with animated bar chart results in your OBS overlay.',
+    href: '/widgets/1s',
+  },
+  {
     icon: Languages,
     title: 'Lingo Translator',
     description:
-      'Real-time translation for your stream chat and viewer messages.',
+      'AI-powered chat translation so your community can speak any language.',
     href: '/helpers/lingo',
   },
   {
@@ -91,7 +107,7 @@ export default function Index() {
                 className="bg-brand text-white hover:bg-brand/90 gap-2 text-base px-8"
                 asChild
               >
-                <Link to="/widgets/progress">Explore Tools</Link>
+                <Link to="/welcome">Explore Tools</Link>
               </Button>
               <Button
                 size="lg"
@@ -127,7 +143,7 @@ export default function Index() {
             {features.map((feature) => {
               const Icon = feature.icon;
               const content = (
-                <div className="group relative flex flex-col rounded-xl border border-border bg-card p-6 transition-all hover:border-brand/50 hover:shadow-lg hover:shadow-brand/5">
+                <div className="group relative flex h-full flex-col rounded-xl border border-border bg-card p-6 transition-all hover:border-brand/50 hover:shadow-lg hover:shadow-brand/5">
                   <div className="mb-4 flex size-12 items-center justify-center rounded-lg bg-brand/10 text-brand">
                     <Icon className="size-6" />
                   </div>
@@ -211,7 +227,7 @@ export default function Index() {
             className="bg-brand text-white hover:bg-brand/90 gap-2 text-base px-8"
             asChild
           >
-            <Link to="/widgets/progress">Explore Tools</Link>
+            <Link to="/welcome">Explore Tools</Link>
           </Button>
         </div>
       </section>
