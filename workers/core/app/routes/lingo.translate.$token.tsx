@@ -2,6 +2,7 @@ import type { Route } from './+types/lingo.translate.$token';
 import { v4 } from 'uuid';
 import { cloudflareEnvironmentContext } from '@/context';
 import { isValidToken } from '@/lib/twitch-data';
+import { normalizeKey } from '@/lib/normalize-key';
 import { isSameLanguage, translate } from '@/lib/translator';
 import { type LingoConfig } from '@/lib/constants/lingo';
 import { knownBots } from '@/lib/known-bots';
@@ -85,7 +86,33 @@ async function handleTranslate(
     env.PVTCH_USER.idFromName(`twitch:${userid}`)
   );
   using lingoPlugin = await stub.lingo();
-  const doConfig = await lingoPlugin.getConfig();
+  let doConfig = await lingoPlugin.getConfig();
+
+  // Temporary migration: pull from old DO if no config exists yet
+  if (!doConfig) {
+    try {
+      const oldKey = normalizeKey(token, 'lingo-config');
+      const oldStub = env.PVTCH_BACKEND.get(
+        env.PVTCH_BACKEND.idFromName(oldKey)
+      );
+      const oldConfigString = await oldStub.get();
+      if (oldConfigString && oldConfigString.length > 0) {
+        const parsed = JSON.parse(oldConfigString) as {
+          bots?: string[];
+          language?: string;
+        };
+        const migrated = {
+          bots: [parsed.bots ?? []].flat().filter((v) => v !== undefined),
+          language: parsed.language ?? 'english',
+        };
+        await lingoPlugin.import(migrated);
+        doConfig = migrated;
+        log('Migrated config from old DO');
+      }
+    } catch (error_) {
+      error('Failed to migrate from old DO', undefined, error_);
+    }
+  }
 
   if (!doConfig) {
     log('No lingo config found', { token });

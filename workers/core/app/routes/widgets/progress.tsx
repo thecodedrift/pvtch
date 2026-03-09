@@ -144,7 +144,7 @@ export default function WidgetsProgress() {
   }, [loaderData, id, fg1, fg2, bg, goal, text, decimal, prefix]);
 
   const updateUrl = useMemo(() => {
-    if (!loaderData.authenticated) return '';
+    if (!loaderData.authenticated || globalThis.window === undefined) return '';
     return `${globalThis.location.origin}/progress/${loaderData.token}/${id}/set?value=UPDATEME`;
   }, [loaderData, id]);
 

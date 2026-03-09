@@ -2,7 +2,6 @@ import { useMemo, useEffect } from 'react';
 import { useFetcher, useLoaderData, data } from 'react-router';
 import { useForm } from '@tanstack/react-form';
 import { toast } from 'sonner';
-import { Copy } from 'lucide-react';
 import type { Route } from './+types/lingo';
 import { cloudflareEnvironmentContext } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
@@ -39,7 +38,7 @@ function parseCookies(cookieHeader: string | null): Record<string, string> {
 
 const defaults = {
   bots: [] as string[],
-  language: 'english',
+  language: '',
 };
 
 type LingoConfig = typeof defaults;
@@ -70,7 +69,7 @@ const parseConfig = (configString?: string): LingoConfig => {
 
   return {
     bots: [parsed.bots ?? defaults.bots].flat().filter((v) => v !== undefined),
-    language: parsed.language ?? defaults.language,
+    language: parsed.language || 'english',
   };
 };
 
@@ -134,6 +133,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return data({
     authenticated: true as const,
     token,
+    hasConfig: config !== undefined,
     config: config ?? defaults,
   });
 }
@@ -227,7 +227,7 @@ export default function HelpersLingo() {
 
   // Generate URLs for display (placeholder when not authenticated)
   const origin = globalThis.location?.origin ?? 'https://www.pvtch.com';
-  const translateAllUrl = loaderData.authenticated
+  const translateUrl = loaderData.authenticated
     ? `${origin}/lingo/translate/${loaderData.token}?user=SENDINGUSER&message=MESSAGEHERE`
     : `${origin}/lingo/translate/YOUR_TOKEN?user=SENDINGUSER&message=MESSAGEHERE`;
 
@@ -239,6 +239,17 @@ export default function HelpersLingo() {
         speak different languages by auto-translating their messages using
         well-established language models.
       </p>
+
+      {(!loaderData.authenticated || !loaderData.hasConfig) && (
+        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md p-4 mb-6">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            <span className="font-semibold">Setup required:</span> You must log
+            in and save your configuration below before Lingo will translate
+            messages. The translate URL in the setup guide won't work until
+            you've saved at least once.
+          </p>
+        </div>
+      )}
 
       {/* Config + URL section - requires auth */}
       <AuthGate
@@ -337,40 +348,10 @@ export default function HelpersLingo() {
             </div>
           </div>
         </form>
-
-        {/* URLs Section */}
-        <div className="mt-8 space-y-4">
-          <Field>
-            <FieldLabel>Translate All URL</FieldLabel>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                readOnly
-                value={translateAllUrl}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  void navigator.clipboard.writeText(translateAllUrl);
-                  toast.success('URL copied to clipboard');
-                }}
-              >
-                <Copy className="size-4" />
-              </Button>
-            </div>
-            <FieldDescription>
-              Translates a message to your configured language (only if it's in
-              a different language)
-            </FieldDescription>
-          </Field>
-        </div>
       </AuthGate>
 
       {/* Setup Guide Section - always visible */}
-      <SetupGuide translateUrl={translateAllUrl} />
+      <SetupGuide translateUrl={translateUrl} />
     </div>
   );
 }
