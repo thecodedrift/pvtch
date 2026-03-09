@@ -43,7 +43,6 @@ export default [
 
   // API routes (loader/action only)
   route('lingo/translate/:token', './routes/lingo.translate.$token.tsx'),
-  route('lingo/test', './routes/lingo.test.tsx'),
   route('lingo/config/:token/set', './routes/lingo.config.$token.set.tsx'),
   route('progress/:token/:name/get', './routes/progress.$token.$name.get.tsx'),
   route('progress/:token/:name/set', './routes/progress.$token.$name.set.tsx'),
