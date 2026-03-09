@@ -33,7 +33,7 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "mcp__linear__*"
     ],
-    "deny": ["Bash(npx:*)"]
+    "deny": ["Bash(npx:*)", "Bash(openspec:*)"]
   },
   "read": {
     "deny": [
