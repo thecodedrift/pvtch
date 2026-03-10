@@ -27,6 +27,7 @@
     "app/**/*",
     "cloudflare/**/*",
     "do/**/*",
+    "e2e/**/*",
     "worker-configuration.d.ts",
     "env.d.ts"
   ],
