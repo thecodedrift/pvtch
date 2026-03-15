@@ -40,6 +40,7 @@ export async function authMiddleware(
   const token = cookies['pvtch_token'];
 
   // Resolve user from token
+  let authenticatedUser: TwitchUserData | undefined;
   const twitchId = await isValidToken(token, env);
   if (twitchId && token) {
     const userData = await env.PVTCH_ACCOUNTS.get<TwitchUserData>(
@@ -47,6 +48,7 @@ export async function authMiddleware(
       'json'
     );
     if (userData) {
+      authenticatedUser = userData;
       context.set(userContext, {
         id: userData.id,
         login: userData.login,
@@ -59,9 +61,10 @@ export async function authMiddleware(
   // Compute instance access
   const allowedUsers = parseAllowedUsers(env.ALLOWED_USERS);
   const isPrivate = allowedUsers.length > 0;
-  const user = context.get(userContext);
   const isAllowed =
-    !isPrivate || (!!user && allowedUsers.includes(user.login.toLowerCase()));
+    !isPrivate ||
+    (!!authenticatedUser &&
+      allowedUsers.includes(authenticatedUser.login.toLowerCase()));
 
   context.set(instanceAccessContext, { isPrivate, isAllowed });
 
