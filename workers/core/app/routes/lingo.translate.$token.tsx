@@ -1,11 +1,13 @@
 import type { Route } from './+types/lingo.translate.$token';
 import { v4 } from 'uuid';
 import { cloudflareEnvironmentContext } from '@/context';
-import { isValidToken } from '@/lib/twitch-data';
+import { resolveTokenUser } from '@/lib/twitch-data';
 import { normalizeKey } from '@/lib/normalize-key';
 import { isSameLanguage, translate } from '@/lib/translator';
 import { type LingoConfig } from '@/lib/constants/lingo';
+import type { LingoPluginConfig } from '../../do/plugins/lingo';
 import { knownBots } from '@/lib/known-bots';
+import { createLogger } from '@/lib/logger';
 
 const ALWAYS_IGNORED_USERS = new Set(knownBots.map((v) => v.toLowerCase()));
 
@@ -20,73 +22,76 @@ async function handleTranslate(
   user: string,
   env: Env
 ): Promise<Response> {
-  const LOG_ID = v4();
   const value = message.trim();
   const userTrimmed = user.trim();
 
-  const log = (msg: string, data?: Record<string, unknown>) => {
-    console.log(`[${LOG_ID}] ${msg}`, {
-      ...data,
-      user: userTrimmed,
-      input: value,
-    });
-  };
-
-  const error = (
-    msg: string,
-    data?: Record<string, unknown>,
-    error?: unknown
-  ) => {
-    console.error(
-      `[${LOG_ID}] ${msg}`,
-      {
-        ...data,
-        user: userTrimmed,
-        input: value,
-      },
-      error
-    );
-  };
+  // Create logger early with just the token for redaction.
+  // Tags will be enriched after token validation resolves user info.
+  const logger = createLogger({
+    feature: 'lingo',
+    requestId: v4(),
+    redactTokens: [token],
+  });
 
   // skip always ignored users
   if (ALWAYS_IGNORED_USERS.has(userTrimmed.toLowerCase())) {
-    log('User is in always ignored bots list');
+    logger.debug('User is in always ignored bots list', { user: userTrimmed });
     return new Response('', { status: 200 });
   }
 
   if (value.startsWith('!')) {
-    log('Command detected, skipping translation');
+    logger.debug('Command detected, skipping translation', {
+      user: userTrimmed,
+      input: value,
+    });
     return new Response('', { status: 200 });
   }
 
   if (value.length === 0 || userTrimmed.length === 0) {
-    log('Skipped, no message or user');
+    logger.debug('Skipped, no message or user', {
+      user: userTrimmed,
+      input: value,
+    });
     return new Response('', { status: 200 });
   }
 
   if (value.toLowerCase().includes('imtyping')) {
-    log('Translation Skip: imtyping');
+    logger.debug('Translation Skip: imtyping', {
+      user: userTrimmed,
+      input: value,
+    });
     return new Response('', { status: 200 });
   }
 
   if (!value.includes(' ') && value.length <= 6) {
-    log('Short single word message, skipping');
+    logger.debug('Short single word message, skipping', {
+      user: userTrimmed,
+      input: value,
+    });
     return new Response('', { status: 200 });
   }
 
-  const userid = await isValidToken(token, env);
+  const resolved = await resolveTokenUser(token, env);
 
-  if (!userid) {
-    log('Invalid token for lingo translate', { token });
+  if (!resolved) {
+    logger.warn('Invalid token for lingo translate');
     return new Response('', { status: 200 });
   }
+
+  // Enrich logger with user context now that we have it
+  const log = logger
+    .withTag(`uid:${resolved.userId}`)
+    .withTag(resolved.displayName ? `@${resolved.displayName}` : '');
 
   // fetch config from User DO
   const stub = env.PVTCH_USER.get(
-    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+    env.PVTCH_USER.idFromName(`twitch:${resolved.userId}`)
   );
   using lingoPlugin = await stub.lingo();
-  let doConfig = await lingoPlugin.getConfig();
+  let doConfig: LingoPluginConfig | undefined = await lingoPlugin.getConfig();
+
+  // Kick off profile sync if not already scheduled
+  void stub.ensureProfileSync();
 
   // Temporary migration: pull from old DO if no config exists yet
   if (!doConfig) {
@@ -107,20 +112,20 @@ async function handleTranslate(
         };
         await lingoPlugin.import(migrated);
         doConfig = migrated;
-        log('Migrated config from old DO');
+        log.info('Migrated config from old DO');
       }
     } catch (error_) {
-      error('Failed to migrate from old DO', undefined, error_);
+      log.error('Failed to migrate from old DO', error_);
     }
   }
 
   if (!doConfig) {
-    log('No lingo config found', { token });
+    log.warn('No lingo config found');
     return new Response('', { status: 200 });
   }
 
   if (!doConfig.bots || !doConfig.language) {
-    log('Incomplete lingo config', { token, doConfig });
+    log.warn('Incomplete lingo config', { doConfig });
     return new Response('', { status: 200 });
   }
 
@@ -133,11 +138,15 @@ async function handleTranslate(
 
   if (config.bots.includes(userTrimmed.toLowerCase())) {
     // dont reply to ignored bots / users
-    log('User is in ignored bots list');
+    log.debug('User is in ignored bots list', { user: userTrimmed });
     return new Response('', { status: 200 });
   }
 
-  log('Lingo translate config:', config);
+  log.info('Lingo translate request', {
+    user: userTrimmed,
+    input: value,
+    config,
+  });
 
   let result;
 
@@ -147,19 +156,22 @@ async function handleTranslate(
       env: env,
     });
   } catch (error_) {
-    error('Lingo translate failed:', undefined, error_);
+    log.error('Lingo translate failed', error_);
     return new Response('', { status: 200 });
   }
 
   if (!result || !result.success) {
-    error('Lingo translate failed. No result');
+    log.error('Lingo translate failed. No result');
     return new Response('', { status: 200 });
   }
 
-  log('LLM Response:', { ...result });
+  log.info('LLM Response', { ...result });
 
   if (isSameLanguage(config.language, value, result)) {
-    log('No translation needed. Language match');
+    log.debug('No translation needed. Language match', {
+      user: userTrimmed,
+      input: value,
+    });
     return new Response('', { status: 200 });
   }
 
@@ -168,7 +180,10 @@ async function handleTranslate(
       .replaceAll(/@[a-z0-9_]+?([^a-z0-9_]|$)/gi, '$1')
       .trim() === ''
   ) {
-    log('Translation result is empty after removing usernames');
+    log.debug('Translation result is empty after removing usernames', {
+      user: userTrimmed,
+      input: value,
+    });
     return new Response('', { status: 200 });
   }
 

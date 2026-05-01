@@ -1,21 +1,34 @@
 import type { Route } from './+types/lingo.config.$token.set';
+import { v4 } from 'uuid';
 import { cloudflareEnvironmentContext } from '@/context';
-import { isValidToken } from '@/lib/twitch-data';
+import { resolveTokenUser } from '@/lib/twitch-data';
 import { lingoConfig } from '@/lib/constants/lingo';
+import { createLogger } from '@/lib/logger';
 
 async function handleConfigSet(
   token: string,
   rawValue: string,
   env: Env
 ): Promise<Response> {
-  const userid = await isValidToken(token, env);
+  const logger = createLogger({
+    feature: 'lingo:config',
+    requestId: v4(),
+    redactTokens: [token],
+  });
 
-  if (!userid) {
+  const resolved = await resolveTokenUser(token, env);
+
+  if (!resolved) {
+    logger.warn('Invalid token for lingo config set');
     return Response.json(
       { op: 'token.lingo.config.set', error: 'Invalid token' },
       { status: 400 }
     );
   }
+
+  const log = logger
+    .withTag(`uid:${resolved.userId}`)
+    .withTag(resolved.displayName ? `@${resolved.displayName}` : '');
 
   const value =
     typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue);
@@ -23,14 +36,16 @@ async function handleConfigSet(
   try {
     const result = lingoConfig.safeParse(JSON.parse(value) as unknown);
     if (!result.success) {
-      console.log('Invalid lingo config set attempt', { errors: result.error });
+      log.warn('Invalid lingo config set attempt', {
+        errors: result.error,
+      });
       return Response.json(
         { op: 'token.lingo.config.set', error: 'Invalid lingo config' },
         { status: 400 }
       );
     }
   } catch (error) {
-    console.log('Error parsing lingo config set attempt', { error: error });
+    log.warn('Error parsing lingo config set attempt', { error });
     return Response.json(
       { op: 'token.lingo.config.set', error: 'Invalid lingo config' },
       { status: 400 }
@@ -39,10 +54,12 @@ async function handleConfigSet(
 
   const parsed = JSON.parse(value) as { bots: string[]; language: string };
   const stub = env.PVTCH_USER.get(
-    env.PVTCH_USER.idFromName(`twitch:${userid}`)
+    env.PVTCH_USER.idFromName(`twitch:${resolved.userId}`)
   );
   using lingoPlugin = await stub.lingo();
   await lingoPlugin.setConfig(parsed);
+
+  log.info('Lingo config updated', { config: parsed });
 
   return Response.json(parsed);
 }

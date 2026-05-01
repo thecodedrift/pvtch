@@ -9,12 +9,14 @@ import {
   userContext,
 } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
+import type { LingoPluginConfig } from '../../../do/plugins/lingo';
 import { isKnownLanguage } from '@/lib/constants/languages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AuthGate } from '@/components/auth-gate';
+import { SecretCopy } from '@/components/secret-copy';
 
 // Firebot setup images
 import firebotCreateEvent from './_lingo-assets/firebot/create_event.png';
@@ -103,7 +105,7 @@ export async function loader({ context }: Route.LoaderArgs) {
     env.PVTCH_USER.idFromName(`twitch:${user.id}`)
   );
   using lingoPlugin = await stub.lingo();
-  let config = await lingoPlugin.getConfig();
+  let config: LingoPluginConfig | undefined = await lingoPlugin.getConfig();
 
   // Temporary migration: pull from old DO if no config exists yet
   if (!config) {
@@ -399,11 +401,12 @@ function SetupGuide({ translateUrl }: { translateUrl: string }) {
               <p className="text-muted-foreground mb-2">
                 <strong>URL:</strong> Use this URL with Firebot variables:
               </p>
-              <div className="bg-muted p-2 rounded-md mb-2 font-mono text-xs break-all">
-                {translateUrl
+              <SecretCopy
+                className="mb-2"
+                value={translateUrl
                   .replace('SENDINGUSER', '$user')
                   .replace('MESSAGEHERE', '$encodeForUrl[$chatMessage]')}
-              </div>
+              />
               <p className="text-muted-foreground mb-3">
                 <strong>Method:</strong> GET
               </p>
@@ -538,11 +541,12 @@ function SetupGuide({ translateUrl }: { translateUrl: string }) {
               <p className="text-muted-foreground mb-2">
                 <strong>URL:</strong> Use this URL with MixItUp variables:
               </p>
-              <div className="bg-muted p-2 rounded-md mb-2 font-mono text-xs break-all">
-                {translateUrl
+              <SecretCopy
+                className="mb-2"
+                value={translateUrl
                   .replace('SENDINGUSER', '$user')
                   .replace('MESSAGEHERE', '$encodedMessage')}
-              </div>
+              />
               <p className="text-muted-foreground mb-3">
                 <strong>Response Processing Type:</strong> Plain Text
               </p>
