@@ -23,7 +23,7 @@ export interface TwitchUser {
   token: string;
 }
 
-export const userContext = createContext<TwitchUser | null>(null);
+export const userContext = createContext<TwitchUser | undefined>(undefined);
 
 /**
  * Context for instance-level access control.

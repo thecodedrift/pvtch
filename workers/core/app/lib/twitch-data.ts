@@ -14,6 +14,31 @@ export const tokenDataKeyPrefix = 'token-data-';
 
 export const DEV_TOKEN = 'dev';
 
+/**
+ * Resolve a token to the full user context: userId, displayName, and login.
+ * Chains two KV lookups: token→userId, then userId→TwitchUserData.
+ */
+export const resolveTokenUser = async (
+  token: string | undefined,
+  environment: Env
+): Promise<
+  { userId: string; displayName?: string; login?: string } | undefined
+> => {
+  const userId = await isValidToken(token, environment);
+  if (!userId) return undefined;
+
+  const userData = await environment.PVTCH_ACCOUNTS.get<TwitchUserData>(
+    `${twitchDataKeyPrefix}${userId}`,
+    'json'
+  );
+
+  return {
+    userId,
+    displayName: userData?.display_name,
+    login: userData?.login,
+  };
+};
+
 export const isValidToken = async (
   token: string | undefined,
   environment: Env
