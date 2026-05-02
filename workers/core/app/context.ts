@@ -23,7 +23,8 @@ export interface TwitchUser {
   token: string;
 }
 
-export const userContext = createContext<TwitchUser | undefined>(undefined);
+// eslint-disable-next-line unicorn/no-null -- React Router's RouterContextProvider.get() throws when default is undefined; null works
+export const userContext = createContext<TwitchUser | null>(null);
 
 /**
  * Context for instance-level access control.

@@ -156,3 +156,97 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Board widget — OBS overlay content. Tight margins so top-left of the
+   browser source maps to the top-left of the first character. The block
+   itself carries a small bottom padding so wrapping content has visual
+   breathing room before the next line / next copy when overflow-scrolling. */
+.board-content {
+  padding-bottom: 1em;
+}
+.board-content > *:first-child {
+  margin-top: 0;
+}
+.board-content > *:last-child {
+  margin-bottom: 0;
+}
+.board-content h1,
+.board-content h2,
+.board-content h3,
+.board-content h4 {
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.5em 0 0.25em;
+}
+.board-content h1 {
+  font-size: 1.6em;
+}
+.board-content h2 {
+  font-size: 1.35em;
+}
+.board-content h3 {
+  font-size: 1.15em;
+}
+.board-content h4 {
+  font-size: 1em;
+}
+.board-content p {
+  margin: 0.25em 0;
+  line-height: 1.4;
+}
+.board-content ul,
+.board-content ol {
+  margin: 0.25em 0;
+  padding-left: 1.5em;
+}
+.board-content ul {
+  list-style: disc;
+}
+.board-content ol {
+  list-style: decimal;
+}
+.board-content li {
+  margin: 0.1em 0;
+}
+.board-content a {
+  color: inherit;
+  text-decoration: underline;
+}
+.board-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  padding: 0.05em 0.3em;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+}
+.board-content pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  margin: 0.5em 0;
+  padding: 0.5em 0.75em;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.board-content pre code {
+  background: transparent;
+  padding: 0;
+}
+.board-content blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.75em;
+  border-left: 3px solid currentColor;
+  opacity: 0.85;
+}
+.board-content hr {
+  margin: 0.5em 0;
+  border: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.4;
+}
+.board-content strong {
+  font-weight: 700;
+}
+.board-content em {
+  font-style: italic;
+}

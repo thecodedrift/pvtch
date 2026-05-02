@@ -7,6 +7,7 @@ import {
 import { Progress } from './plugins/progress';
 import { Lingo } from './plugins/lingo';
 import { Profile } from './plugins/profile';
+import { Board } from './plugins/board';
 import {
   type TwitchUserData,
   twitchDataKeyPrefix,
@@ -20,6 +21,7 @@ export class User extends DurableObject<Env> implements JobSchedulerHost {
   private _progress: Progress;
   private _lingo: Lingo;
   private _profile: Profile;
+  private _board: Board;
   private scheduler: JobScheduler;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -28,6 +30,7 @@ export class User extends DurableObject<Env> implements JobSchedulerHost {
     this._progress = new Progress(sql);
     this._lingo = new Lingo(sql);
     this._profile = new Profile(sql);
+    this._board = new Board(sql);
     this.scheduler = new JobScheduler(sql, ctx);
   }
 
@@ -41,6 +44,10 @@ export class User extends DurableObject<Env> implements JobSchedulerHost {
 
   profile(): Profile {
     return this._profile;
+  }
+
+  board(): Board {
+    return this._board;
   }
 
   async alarm(): Promise<void> {

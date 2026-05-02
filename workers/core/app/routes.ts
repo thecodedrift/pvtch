@@ -17,6 +17,8 @@ export default [
     route('widgets/todo', './routes/widgets/todo.tsx'),
     route('helpers/lingo', './routes/helpers/lingo.tsx'),
     route('howto/deploy-your-own', './routes/howto/deploy-your-own.tsx'),
+    route('howto/board', './routes/howto/board.tsx'),
+    route('board', './routes/board._index.tsx'),
   ]),
 
   // Private instance page (no layout)
@@ -29,6 +31,21 @@ export default [
   ),
   route('sources/todo/:channel', './routes/sources/todo.$channel.tsx'),
   route('sources/1s/:channel', './routes/sources/1s.$channel.tsx'),
+
+  // Board widget (anonymous-by-URL, no layout)
+  route('board/new', './routes/board.new.tsx'),
+  route('board/:id', './routes/board.$id.tsx'),
+  route('board/:id/edit/:key', './routes/board.$id.edit.$key.tsx'),
+  route(
+    'board/:id/edit/:key/presence',
+    './routes/board.$id.edit.$key.presence.tsx'
+  ),
+  route(
+    'board/:id/edit/:key/revert',
+    './routes/board.$id.edit.$key.revert.tsx'
+  ),
+  route('board/:id/delete', './routes/board.$id.delete.tsx'),
+  route('board/:id/rotate', './routes/board.$id.rotate.tsx'),
 
   // Health check
   route('health', './routes/health.tsx'),
