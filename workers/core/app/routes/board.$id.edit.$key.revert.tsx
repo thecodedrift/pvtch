@@ -26,7 +26,10 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   );
   const editorName = typeof editorNameRaw === 'string' ? editorNameRaw : '';
 
-  if (!historyId || !Number.isFinite(historyId)) {
+  if (!Number.isInteger(historyId) || historyId <= 0) {
+    return data({ error: 'bad_request' as const }, { status: 400 });
+  }
+  if (!Number.isInteger(baseVersion) || baseVersion < 0) {
     return data({ error: 'bad_request' as const }, { status: 400 });
   }
 

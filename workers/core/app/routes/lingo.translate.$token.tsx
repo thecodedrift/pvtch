@@ -78,10 +78,13 @@ async function handleTranslate(
     return new Response('', { status: 200 });
   }
 
-  // Enrich logger with user context now that we have it
-  const log = logger
-    .withTag(`uid:${resolved.userId}`)
-    .withTag(resolved.displayName ? `@${resolved.displayName}` : '');
+  // Enrich logger with user context now that we have it. Only add the
+  // displayName tag when present so structured logs don't carry an empty
+  // tag segment.
+  let log = logger.withTag(`uid:${resolved.userId}`);
+  if (resolved.displayName) {
+    log = log.withTag(`@${resolved.displayName}`);
+  }
 
   // fetch config from User DO
   const stub = env.PVTCH_USER.get(

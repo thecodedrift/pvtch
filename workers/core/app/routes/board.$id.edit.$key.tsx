@@ -78,7 +78,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 }
 
 interface SaveError {
-  error: 'forbidden' | 'too_large' | 'not_found' | 'conflict';
+  error: 'forbidden' | 'too_large' | 'not_found' | 'conflict' | 'bad_request';
   currentContent?: string;
   currentVersion?: number;
 }
@@ -101,8 +101,12 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const content = formField(formData, 'content');
-  const baseVersion = Number(formField(formData, 'baseVersion', '0'));
+  const baseVersion = Number(formField(formData, 'baseVersion', ''));
   const editorName = formField(formData, 'editorName');
+
+  if (!Number.isInteger(baseVersion) || baseVersion < 0) {
+    return data<SaveError>({ error: 'bad_request' }, { status: 400 });
+  }
 
   using boardPlugin = await stub.board();
   const result = await boardPlugin.save(
@@ -203,7 +207,7 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
   const revertFetcher = useFetcher();
   const revalidator = useRevalidator();
 
-  const sessionIdRef = useRef<string>(undefined);
+  const sessionIdRef = useRef<string | undefined>(undefined);
   if (!sessionIdRef.current) sessionIdRef.current = nanoid(10);
 
   const [content, setContent] = useState(loaderData.content);
@@ -452,6 +456,8 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
             {saveError.error === 'too_large' &&
               `Content is too large. Limit is ${MAX_CONTENT_BYTES} bytes.`}
             {saveError.error === 'not_found' && 'This board no longer exists.'}
+            {saveError.error === 'bad_request' &&
+              'Invalid request. Reload the page and try again.'}
           </div>
         </div>
       )}
