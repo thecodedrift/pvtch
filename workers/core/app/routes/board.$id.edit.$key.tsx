@@ -101,9 +101,13 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const content = formField(formData, 'content');
-  const baseVersion = Number(formField(formData, 'baseVersion', ''));
+  const baseVersionRaw = formData.get('baseVersion');
   const editorName = formField(formData, 'editorName');
 
+  if (typeof baseVersionRaw !== 'string' || baseVersionRaw.length === 0) {
+    return data<SaveError>({ error: 'bad_request' }, { status: 400 });
+  }
+  const baseVersion = Number(baseVersionRaw);
   if (!Number.isInteger(baseVersion) || baseVersion < 0) {
     return data<SaveError>({ error: 'bad_request' }, { status: 400 });
   }
