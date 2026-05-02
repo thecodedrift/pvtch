@@ -29,4 +29,16 @@ export const jobSchedulerMigrations: Migrations = {
        ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL AND status NOT IN ('dead')`
     );
   },
+  // Recurring jobs ("from inside the handler, schedule the next run with
+  // the same key") were broken by v2's unique index: it treats `completed`
+  // rows as active, so the second run fails with a uniqueness violation.
+  // Tighten the partial index to only enforce uniqueness for jobs that are
+  // actually queued (pending) or currently executing (running).
+  3: (sql) => {
+    sql.exec(`DROP INDEX IF EXISTS idx_jobs_idempotency`);
+    sql.exec(
+      `CREATE UNIQUE INDEX idx_jobs_idempotency
+       ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL AND status IN ('pending', 'running')`
+    );
+  },
 };

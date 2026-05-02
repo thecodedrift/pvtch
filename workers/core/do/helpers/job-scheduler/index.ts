@@ -11,7 +11,7 @@ export interface JobOptions {
   maxRetries?: number;
   /** Base delay in seconds for exponential backoff (default: 30) */
   backoffBaseSeconds?: number;
-  /** Optional idempotency key. If a job with this key exists in a non-dead state, scheduling is skipped. */
+  /** Optional idempotency key. If a job with this key is currently queued or running, scheduling is skipped. Completed/dead jobs do not block, so a handler can re-schedule itself with the same key for recurring work. */
   key?: string;
 }
 
@@ -58,11 +58,15 @@ export class JobScheduler {
     const scheduledAt =
       when instanceof Date ? when.getTime() : now + when * 1000;
 
-    // Idempotency key deduplication: skip if a non-dead job with this key exists
+    // Idempotency key deduplication: skip if a job with this key is currently
+    // queued or running. Completed/dead jobs do NOT block — that lets the
+    // recurring-job pattern ("from inside the handler, schedule the next
+    // run with the same key") actually fire after the first cycle, instead
+    // of getting deduped against the just-completed row.
     if (options?.key) {
       const existing = this.sql
         .exec(
-          `SELECT id FROM jobs WHERE idempotency_key = ? AND status != 'dead' LIMIT 1`,
+          `SELECT id FROM jobs WHERE idempotency_key = ? AND status IN ('pending', 'running') LIMIT 1`,
           options.key
         )
         .toArray();

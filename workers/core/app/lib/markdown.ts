@@ -17,7 +17,11 @@ const SAFE_LINK = /^(?:https?:|mailto:)/i;
 
 md.validateLink = (url: string): boolean => {
   const trimmed = url.trim();
-  if (trimmed.startsWith('/') || trimmed.startsWith('#')) return true;
+  // Allow same-origin paths (`/foo`) and fragments (`#section`) but reject
+  // protocol-relative URLs (`//evil.com`) — browsers treat those as
+  // external links, which would bypass the http(s)/mailto restriction.
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return true;
+  if (trimmed.startsWith('#')) return true;
   return SAFE_LINK.test(trimmed);
 };
 
