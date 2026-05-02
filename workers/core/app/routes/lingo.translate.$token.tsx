@@ -93,8 +93,13 @@ async function handleTranslate(
   using lingoPlugin = await stub.lingo();
   let doConfig: LingoPluginConfig | undefined = await lingoPlugin.getConfig();
 
-  // Kick off profile sync if not already scheduled
-  void stub.ensureProfileSync();
+  // Kick off profile sync if not already scheduled. Fire-and-forget: a
+  // transient DO error here shouldn't fail the translate request, but we
+  // still need a `.catch` so a rejection doesn't surface as an unhandled
+  // promise rejection in the request lifecycle.
+  void Promise.resolve(stub.ensureProfileSync()).catch((error: unknown) => {
+    log.warn('Failed to schedule profile sync', { error });
+  });
 
   // Temporary migration: pull from old DO if no config exists yet
   if (!doConfig) {

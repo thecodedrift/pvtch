@@ -14,32 +14,32 @@ describe('parseBoardId', () => {
     });
   });
 
-  it('returns null for missing slot portion', () => {
+  it('returns undefined for missing slot portion', () => {
     expect(parseBoardId('12345')).toBeUndefined();
   });
 
-  it('returns null for non-numeric userId', () => {
+  it('returns undefined for non-numeric userId', () => {
     expect(parseBoardId('abc-1234abcd')).toBeUndefined();
   });
 
-  it('returns null for wrong-length slotId', () => {
+  it('returns undefined for wrong-length slotId', () => {
     expect(parseBoardId('12345-abcd123')).toBeUndefined(); // 7 chars
     expect(parseBoardId('12345-abcd12345')).toBeUndefined(); // 9 chars
   });
 
-  it('returns null for uppercase slotId', () => {
+  it('returns undefined for uppercase slotId', () => {
     expect(parseBoardId('12345-ABCD1234')).toBeUndefined();
   });
 
-  it('returns null for empty string', () => {
+  it('returns undefined for empty string', () => {
     expect(parseBoardId('')).toBeUndefined();
   });
 
-  it('returns null when leading dash', () => {
+  it('returns undefined when leading dash', () => {
     expect(parseBoardId('-abcd1234')).toBeUndefined();
   });
 
-  it('returns null when trailing dash', () => {
+  it('returns undefined when trailing dash', () => {
     expect(parseBoardId('12345-')).toBeUndefined();
   });
 });

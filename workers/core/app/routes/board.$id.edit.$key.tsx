@@ -212,6 +212,18 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
 
   const [content, setContent] = useState(loaderData.content);
   const [baseVersion, setBaseVersion] = useState(loaderData.version);
+  // Snapshot of the server content as we last synced it. Compare against
+  // `content` to decide whether the user has typed anything locally since
+  // the last sync — comparing against `loaderData.content` is wrong because
+  // that's the *latest* server state; if another editor saves, it diverges
+  // from `content` even when the local user never typed.
+  const [lastSyncedContent, setLastSyncedContent] = useState(
+    loaderData.content
+  );
+  // Captures the content body sent on the most recent save. On save success
+  // we advance `lastSyncedContent` to this value (rather than reading current
+  // `content`, which the user may have continued typing into).
+  const lastSubmittedContentRef = useRef<string>(loaderData.content);
   const [editorName, setEditorName] = useState<string | undefined>();
   const [namePrompt, setNamePrompt] = useState('');
   const [showNamePrompt, setShowNamePrompt] = useState(false);
@@ -264,7 +276,8 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
     return () => clearInterval(interval);
   }, [revalidator]);
 
-  // After a successful save, advance baseVersion
+  // After a successful save, advance baseVersion and record the content
+  // we submitted as the new "last synced" baseline.
   useEffect(() => {
     if (
       saveFetcher.state === 'idle' &&
@@ -273,6 +286,7 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
       saveFetcher.data.ok
     ) {
       setBaseVersion(saveFetcher.data.version);
+      setLastSyncedContent(lastSubmittedContentRef.current);
     }
   }, [saveFetcher.state, saveFetcher.data]);
 
@@ -294,20 +308,31 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
       consumedRevertVersion.current = d.version;
       setContent(d.content);
       setBaseVersion(d.version);
+      setLastSyncedContent(d.content);
       void revalidator.revalidate();
     }
   }, [revertFetcher.state, revertFetcher.data, revalidator]);
 
-  // If the loader returns a newer version than our baseVersion AND we haven't
-  // edited locally, sync local content to server. Otherwise show conflict.
+  // If the loader returns a newer version AND the user hasn't typed locally
+  // since the last sync (i.e. `content === lastSyncedContent`), silently
+  // adopt the new server state. If the user *has* typed locally, leave
+  // their work alone and let `remoteAhead` trigger so they can decide.
   useEffect(() => {
-    if (loaderData.version > baseVersion && content === loaderData.content) {
+    if (loaderData.version > baseVersion && content === lastSyncedContent) {
+      setContent(loaderData.content);
       setBaseVersion(loaderData.version);
+      setLastSyncedContent(loaderData.content);
     }
-  }, [loaderData.version, loaderData.content, baseVersion, content]);
+  }, [
+    loaderData.version,
+    loaderData.content,
+    baseVersion,
+    content,
+    lastSyncedContent,
+  ]);
 
   const remoteAhead =
-    loaderData.version > baseVersion && content !== loaderData.content;
+    loaderData.version > baseVersion && content !== lastSyncedContent;
 
   const previewHtml = useMemo(() => renderBoardMarkdown(content), [content]);
 
@@ -325,12 +350,14 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
     fd.set('content', content);
     fd.set('baseVersion', String(baseVersion));
     fd.set('editorName', editorName);
+    lastSubmittedContentRef.current = content;
     void saveFetcher.submit(fd, { method: 'POST' });
   };
 
   const handleReloadFromServer = () => {
     setContent(loaderData.content);
     setBaseVersion(loaderData.version);
+    setLastSyncedContent(loaderData.content);
   };
 
   const handleRevert = (historyId: number) => {
@@ -441,6 +468,7 @@ function BoardEditorReady({ data: loaderData }: { data: ReadyData }) {
                   onClick={() => {
                     if (typeof saveError.currentContent === 'string') {
                       setContent(saveError.currentContent);
+                      setLastSyncedContent(saveError.currentContent);
                     }
                     if (typeof saveError.currentVersion === 'number') {
                       setBaseVersion(saveError.currentVersion);

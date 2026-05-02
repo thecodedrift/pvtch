@@ -76,6 +76,11 @@ describe('renderBoardMarkdown', () => {
     expect(html).toContain('href="#section"');
   });
 
+  it('rejects protocol-relative URLs', () => {
+    const html = renderBoardMarkdown('[evil](//evil.com/path)');
+    expect(html.toLowerCase()).not.toMatch(/<a[^>]+href\s*=\s*["']\/\//);
+  });
+
   it('does not parse on* event handler attributes from raw HTML', () => {
     // Raw HTML in source is escaped to text; even though "onerror=" appears
     // in the escaped output as literal text, no parsed <img> tag carries it.
