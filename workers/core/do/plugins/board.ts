@@ -128,11 +128,13 @@ interface PresenceRow {
 }
 
 function normalizeEditorName(name: string): string {
+  const bounded = name.slice(0, MAX_EDITOR_NAME_LENGTH * 4);
   let cleaned = '';
-  for (const ch of name) {
+  for (const ch of bounded) {
     const code = ch.codePointAt(0) ?? 0;
     if (code < 0x20 || code === 0x7f) continue;
     cleaned += ch;
+    if (cleaned.length >= MAX_EDITOR_NAME_LENGTH) break;
   }
   const trimmed = cleaned.trim().slice(0, MAX_EDITOR_NAME_LENGTH);
   return trimmed.length === 0 ? 'Anonymous editor' : trimmed;

@@ -18,12 +18,15 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   const historyIdRaw = formData.get('historyId');
   const baseVersionRaw = formData.get('baseVersion');
   const editorNameRaw = formData.get('editorName');
-  const historyId = Number(
-    typeof historyIdRaw === 'string' ? historyIdRaw : '0'
-  );
-  const baseVersion = Number(
-    typeof baseVersionRaw === 'string' ? baseVersionRaw : '0'
-  );
+
+  if (typeof historyIdRaw !== 'string' || historyIdRaw.length === 0) {
+    return data({ error: 'bad_request' as const }, { status: 400 });
+  }
+  if (typeof baseVersionRaw !== 'string' || baseVersionRaw.length === 0) {
+    return data({ error: 'bad_request' as const }, { status: 400 });
+  }
+  const historyId = Number(historyIdRaw);
+  const baseVersion = Number(baseVersionRaw);
   const editorName = typeof editorNameRaw === 'string' ? editorNameRaw : '';
 
   if (!Number.isInteger(historyId) || historyId <= 0) {
