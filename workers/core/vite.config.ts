@@ -6,6 +6,12 @@ import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
+  server: {
+    allowedHosts: [
+      'localhost',
+      // 'zkaot-2600-1700-22fb-6400--20.run.pinggy-free.link',
+    ],
+  },
   plugins: [
     cloudflare({
       viteEnvironment: { name: 'ssr' },
