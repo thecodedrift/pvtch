@@ -26,9 +26,12 @@ async function handleConfigSet(
     );
   }
 
-  const log = logger
-    .withTag(`uid:${resolved.userId}`)
-    .withTag(resolved.displayName ? `@${resolved.displayName}` : '');
+  // Only add the displayName tag when present so structured logs don't
+  // carry an empty tag segment.
+  let log = logger.withTag(`uid:${resolved.userId}`);
+  if (resolved.displayName) {
+    log = log.withTag(`@${resolved.displayName}`);
+  }
 
   const value =
     typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue);

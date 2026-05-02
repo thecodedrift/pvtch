@@ -265,30 +265,33 @@ export class Board extends RpcTarget {
     const normalizedName = normalizeEditorName(editorName);
     const hash = await hashContent(content);
 
+    // Atomic: a single sql.exec() with semicolon-separated statements is
+    // wrapped in an automatic transaction by SqlStorage. If any statement
+    // fails, the whole batch is rolled back, so the row update, history
+    // insert, and history trim never end up in an inconsistent half-written
+    // state. The history trim uses (ts DESC, id DESC) so two saves sharing
+    // the same millisecond still produce a deterministic ordering — newer
+    // inserts (higher autoincrement id) are kept.
     this.sql.exec(
-      `UPDATE boards SET content = ?, version = ?, updated_at = ? WHERE slot_id = ?`,
+      `UPDATE boards SET content = ?, version = ?, updated_at = ? WHERE slot_id = ?;
+       INSERT INTO board_history (slot_id, ts, editor_name, content_hash, content)
+         VALUES (?, ?, ?, ?, ?);
+       DELETE FROM board_history
+         WHERE slot_id = ?
+           AND id NOT IN (
+             SELECT id FROM board_history
+             WHERE slot_id = ?
+             ORDER BY ts DESC, id DESC LIMIT ?
+           );`,
       content,
       newVersion,
       now,
-      slotId
-    );
-    this.sql.exec(
-      `INSERT INTO board_history (slot_id, ts, editor_name, content_hash, content)
-       VALUES (?, ?, ?, ?, ?)`,
+      slotId,
       slotId,
       now,
       normalizedName,
       hash,
-      content
-    );
-    this.sql.exec(
-      `DELETE FROM board_history
-       WHERE slot_id = ?
-         AND id NOT IN (
-           SELECT id FROM board_history
-           WHERE slot_id = ?
-           ORDER BY ts DESC LIMIT ?
-         )`,
+      content,
       slotId,
       slotId,
       MAX_HISTORY_PER_BOARD
@@ -407,7 +410,7 @@ export class Board extends RpcTarget {
       .exec(
         `SELECT id, ts, editor_name, content_hash FROM board_history
          WHERE slot_id = ?
-         ORDER BY ts DESC LIMIT ?`,
+         ORDER BY ts DESC, id DESC LIMIT ?`,
         slotId,
         MAX_HISTORY_PER_BOARD
       )

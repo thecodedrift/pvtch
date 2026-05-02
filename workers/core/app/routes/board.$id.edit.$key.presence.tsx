@@ -20,7 +20,16 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   const sessionId = typeof sessionIdRaw === 'string' ? sessionIdRaw : '';
   const name = typeof nameRaw === 'string' ? nameRaw : '';
 
-  if (!sessionId) {
+  // Cap sessionId at 32 chars and restrict to URL-safe characters. The
+  // client generates 10-char nanoids, so a real session always fits well
+  // within this limit; the cap exists to keep a misbehaving caller from
+  // bloating per-board storage by submitting megabyte session IDs (the
+  // value is the primary key of board_presence rows on the User DO).
+  if (
+    !sessionId ||
+    sessionId.length > 32 ||
+    !/^[A-Za-z0-9_-]+$/.test(sessionId)
+  ) {
     return data({ error: 'bad_request' as const }, { status: 400 });
   }
 
