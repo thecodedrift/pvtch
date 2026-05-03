@@ -251,51 +251,52 @@ function BoardNameEditor({ boardId, name }: { boardId: string; name: string }) {
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-2 min-w-0">
-        <h2 className="font-semibold truncate">{name}</h2>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            setDraft(name);
-            setEditing(true);
-          }}
-        >
-          Rename
-        </Button>
-      </div>
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(name);
+          setEditing(true);
+        }}
+        title="Click to rename"
+        className="font-semibold truncate min-w-0 text-left rounded px-1 -mx-1 hover:bg-muted focus:bg-muted focus:outline-none"
+      >
+        {name}
+      </button>
     );
   }
 
+  const commit = (next: string) => {
+    const trimmed = next.trim();
+    if (trimmed.length === 0 || trimmed === name) {
+      setEditing(false);
+      return;
+    }
+    const fd = new FormData();
+    fd.set('intent', 'rename');
+    fd.set('boardId', boardId);
+    fd.set('name', trimmed);
+    void fetcher.submit(fd, { method: 'POST', action: '/board' });
+    setEditing(false);
+  };
+
   return (
-    <fetcher.Form
-      method="POST"
-      action="/board"
-      className="flex items-center gap-2 min-w-0 flex-1"
-      onSubmit={() => setEditing(false)}
-    >
-      <input type="hidden" name="intent" value="rename" />
-      <input type="hidden" name="boardId" value={boardId} />
-      <Input
-        name="name"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        maxLength={MAX_BOARD_NAME_LENGTH}
-        autoFocus
-        className="h-8 max-w-xs"
-      />
-      <Button type="submit" size="sm" disabled={isSubmitting}>
-        Save
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        onClick={() => setEditing(false)}
-      >
-        Cancel
-      </Button>
-    </fetcher.Form>
+    <Input
+      autoFocus
+      defaultValue={draft}
+      maxLength={MAX_BOARD_NAME_LENGTH}
+      disabled={isSubmitting}
+      className="h-8 max-w-xs font-semibold"
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={(event) => commit(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commit(event.currentTarget.value);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          setEditing(false);
+        }
+      }}
+    />
   );
 }
