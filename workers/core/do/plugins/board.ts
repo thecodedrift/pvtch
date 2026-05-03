@@ -3,6 +3,7 @@ import { migrate, type Migrations } from '../helpers/migrate';
 import { newSlotId, newEditKey } from '../../app/lib/board-id';
 import {
   MAX_BOARDS_PER_USER,
+  MAX_BOARD_NAME_LENGTH,
   MAX_CONTENT_BYTES,
   MAX_HISTORY_PER_BOARD,
   MAX_EDITOR_NAME_LENGTH,
@@ -78,6 +79,7 @@ export type BoardError =
   | { error: 'forbidden' }
   | { error: 'too_large' }
   | { error: 'cap_reached' }
+  | { error: 'bad_request' }
   | { error: 'conflict'; currentContent: string; currentVersion: number };
 
 export interface BoardSaveSuccess {
@@ -206,7 +208,8 @@ export class Board extends RpcTarget {
     const slotId = newSlotId();
     const editKey = newEditKey();
     const now = Date.now();
-    const trimmedName = (name ?? '').trim().slice(0, 80) || 'Untitled';
+    const trimmedName =
+      (name ?? '').trim().slice(0, MAX_BOARD_NAME_LENGTH) || 'Untitled';
     this.sql.exec(
       `INSERT INTO boards (slot_id, edit_key, name, content, version, created_at, updated_at)
        VALUES (?, ?, ?, '', 0, ?, ?)`,
@@ -217,6 +220,20 @@ export class Board extends RpcTarget {
       now
     );
     return { slotId, editKey };
+  }
+
+  rename(slotId: string, name: string): { ok: true } | BoardError {
+    const row = this.getRow(slotId);
+    if (!row) return { error: 'not_found' };
+    const trimmed = name.trim().slice(0, MAX_BOARD_NAME_LENGTH);
+    if (trimmed.length === 0) return { error: 'bad_request' };
+    this.sql.exec(
+      `UPDATE boards SET name = ?, updated_at = ? WHERE slot_id = ?`,
+      trimmed,
+      Date.now(),
+      slotId
+    );
+    return { ok: true };
   }
 
   read(slotId: string): BoardReadResult | undefined {
