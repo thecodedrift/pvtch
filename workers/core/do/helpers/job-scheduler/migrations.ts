@@ -54,4 +54,15 @@ export const jobSchedulerMigrations: Migrations = {
        ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL AND status = 'pending'`
     );
   },
+  // The reaper at processAlarm() runs DELETE FROM jobs WHERE status IN
+  // ('completed', 'dead') AND created_at < ? on every alarm. Without a
+  // covering index this scans the full jobs table, and rows_read scales
+  // with the cumulative job count over the retention window. Add a partial
+  // index over the reapable rows so the DELETE only visits expired rows.
+  5: (sql) => {
+    sql.exec(
+      `CREATE INDEX IF NOT EXISTS idx_jobs_reaper
+       ON jobs(created_at) WHERE status IN ('completed', 'dead')`
+    );
+  },
 };
