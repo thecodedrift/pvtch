@@ -41,4 +41,17 @@ export const jobSchedulerMigrations: Migrations = {
        ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL AND status IN ('pending', 'running')`
     );
   },
+  // v3 still broke the recurring-handler case: while a handler is executing
+  // its own row is `running`, so an in-handler reschedule with the same key
+  // hit the unique index and failed. Narrow the partial index to `pending`
+  // only — the matching dedupe SELECT in JobScheduler.schedule() now also
+  // checks `status = 'pending'`, so a running job no longer blocks its own
+  // successor from being queued.
+  4: (sql) => {
+    sql.exec(`DROP INDEX IF EXISTS idx_jobs_idempotency`);
+    sql.exec(
+      `CREATE UNIQUE INDEX idx_jobs_idempotency
+       ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL AND status = 'pending'`
+    );
+  },
 };

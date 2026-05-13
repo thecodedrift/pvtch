@@ -58,15 +58,16 @@ export class JobScheduler {
     const scheduledAt =
       when instanceof Date ? when.getTime() : now + when * 1000;
 
-    // Idempotency key deduplication: skip if a job with this key is currently
-    // queued or running. Completed/dead jobs do NOT block — that lets the
-    // recurring-job pattern ("from inside the handler, schedule the next
-    // run with the same key") actually fire after the first cycle, instead
-    // of getting deduped against the just-completed row.
+    // Idempotency key deduplication: skip only if a job with this key is
+    // already queued (pending). Running jobs do NOT block — otherwise a
+    // handler that reschedules itself with the same key (the recurring-job
+    // pattern, e.g. sync-profile re-arming for tomorrow) gets deduped
+    // against its own in-flight row and never re-arms. Completed/dead jobs
+    // also do not block.
     if (options?.key) {
       const existing = this.sql
         .exec(
-          `SELECT id FROM jobs WHERE idempotency_key = ? AND status IN ('pending', 'running') LIMIT 1`,
+          `SELECT id FROM jobs WHERE idempotency_key = ? AND status = 'pending' LIMIT 1`,
           options.key
         )
         .toArray();
