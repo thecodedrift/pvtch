@@ -72,6 +72,10 @@ const fixtures: Fixture[] = [
 
 let env: Env;
 let dispose: () => Promise<void>;
+// AI calls require a Cloudflare account credential. CI and local
+// dev-without-login can't reach the AI binding, so we probe in beforeAll
+// and skip individual tests if it isn't available rather than failing.
+let aiAvailable = false;
 
 beforeAll(async () => {
   const proxy = await getPlatformProxy<Env>({
@@ -79,6 +83,25 @@ beforeAll(async () => {
   });
   env = proxy.env;
   dispose = proxy.dispose;
+
+  try {
+    const probe = await translate('hello', {
+      env,
+      targetLanguage: TARGET_LANGUAGE,
+    });
+    // A successful structured response means the AI binding is reachable.
+    // A parse failure ("Failed to parse translator response") still proves
+    // the binding answered, so treat it as available too.
+    aiAvailable = probe.success || probe.error.startsWith('Failed to parse');
+  } catch {
+    aiAvailable = false;
+  }
+  if (!aiAvailable) {
+    console.warn(
+      '[lingo.test] AI binding unavailable — skipping translation tests. ' +
+        'Run `wrangler login` and re-run if you want to exercise these.'
+    );
+  }
 });
 
 afterAll(async () => {
@@ -87,7 +110,8 @@ afterAll(async () => {
 
 describe('lingo translation', () => {
   for (const fixture of fixtures) {
-    it(`translates: "${fixture.input.slice(0, 50)}..."`, async () => {
+    it(`translates: "${fixture.input.slice(0, 50)}..."`, async (ctx) => {
+      if (!aiAvailable) ctx.skip();
       const result = await translate(fixture.input, {
         env,
         targetLanguage: TARGET_LANGUAGE,

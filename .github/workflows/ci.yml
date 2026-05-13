@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an older run if a newer one starts on the same ref. Saves CI minutes
+# when someone pushes a fixup before the previous run finishes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: lint + typecheck + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # better-sqlite3 needs to compile a native binding for the unit tests.
+      # The `onlyBuiltDependencies` allowlist in package.json approves the
+      # build script automatically.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm --filter @pvtch/core lint
+
+      - name: Typecheck
+        run: pnpm --filter @pvtch/core typecheck
+
+      - name: Unit tests
+        run: pnpm --filter @pvtch/core test:unit
+
+      # E2E tests run too. The lingo suite probes the AI binding in beforeAll
+      # and skips itself if the binding isn't reachable (CI has no Cloudflare
+      # credentials), so it won't fail the build.
+      - name: E2E tests
+        run: pnpm --filter @pvtch/core test:e2e
