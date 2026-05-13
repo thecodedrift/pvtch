@@ -106,6 +106,138 @@ describe('JobScheduler — recurring handler re-arm (Bug 2)', () => {
   });
 });
 
+describe('JobScheduler — retry / backoff', () => {
+  it('schedules a retry with exponential backoff on handler failure', async () => {
+    scheduler.schedule(0, 'flaky', { attempt: 'first' });
+
+    let calls = 0;
+    await scheduler.processAlarm({
+      scheduled: () => {
+        calls++;
+        throw new Error('boom');
+      },
+    });
+    expect(calls).toBe(1);
+
+    const rows = database
+      .prepare(
+        `SELECT status, attempt, scheduled_at, last_error
+         FROM jobs ORDER BY scheduled_at ASC`
+      )
+      .all() as {
+      status: string;
+      attempt: number;
+      scheduled_at: number;
+      last_error: string;
+    }[];
+    expect(rows).toHaveLength(1);
+    const job = rows[0];
+    if (!job) throw new Error('expected job row');
+    expect(job.status).toBe('pending');
+    expect(job.attempt).toBe(1);
+    expect(job.last_error).toBe('boom');
+    // Default backoff is 30s base * 2^0 = 30s on first retry.
+    expect(job.scheduled_at).toBe(Date.now() + 30 * 1000);
+  });
+
+  it('marks the job dead after maxRetries is exceeded', async () => {
+    scheduler.schedule(0, 'doomed', {}, { maxRetries: 1 });
+
+    // First attempt fails → schedules retry with backoff.
+    await scheduler.processAlarm({
+      scheduled: () => {
+        throw new Error('first fail');
+      },
+    });
+    // Advance past the backoff so the retry becomes due.
+    vi.advanceTimersByTime(60 * 1000);
+
+    // Second attempt fails → maxRetries exhausted, marked dead.
+    await scheduler.processAlarm({
+      scheduled: () => {
+        throw new Error('second fail');
+      },
+    });
+
+    const rows = database
+      .prepare(
+        `SELECT status, attempt, last_error FROM jobs ORDER BY status DESC`
+      )
+      .all() as { status: string; attempt: number; last_error: string }[];
+    expect(rows).toHaveLength(1);
+    const job = rows[0];
+    if (!job) throw new Error('expected job row');
+    expect(job.status).toBe('dead');
+    expect(job.last_error).toBe('second fail');
+  });
+
+  it('respects a custom backoffBaseSeconds', async () => {
+    scheduler.schedule(0, 't', {}, { backoffBaseSeconds: 5 });
+    await scheduler.processAlarm({
+      scheduled: () => {
+        throw new Error('x');
+      },
+    });
+    const job = database
+      .prepare(`SELECT scheduled_at FROM jobs LIMIT 1`)
+      .all() as { scheduled_at: number }[];
+    const row = job[0];
+    if (!row) throw new Error('expected row');
+    // 5 * 2^0 = 5 seconds for first retry.
+    expect(row.scheduled_at).toBe(Date.now() + 5 * 1000);
+  });
+
+  it('marks completed jobs that succeeded; reaps old completed rows', async () => {
+    scheduler.schedule(0, 'ok', {});
+    await scheduler.processAlarm({
+      scheduled: () => Promise.resolve(),
+    });
+
+    const before = database.prepare(`SELECT status FROM jobs`).all() as {
+      status: string;
+    }[];
+    expect(before).toHaveLength(1);
+    expect(before[0]?.status).toBe('completed');
+
+    // Advance past 30-day retention; next alarm should reap it.
+    vi.setSystemTime(new Date('2026-04-01T00:00:00Z'));
+    scheduler.schedule(0, 'next', {});
+    await scheduler.processAlarm({ scheduled: () => Promise.resolve() });
+
+    const after = database
+      .prepare(`SELECT task FROM jobs ORDER BY task ASC`)
+      .all() as { task: string }[];
+    // The original 'ok' job is gone; only 'next' (also completed) remains.
+    expect(after.map((r) => r.task)).toEqual(['next']);
+  });
+
+  it('schedules and fires due jobs in scheduled_at order', async () => {
+    scheduler.schedule(60, 'second', {});
+    scheduler.schedule(30, 'first', {});
+
+    // Advance past both delays.
+    vi.advanceTimersByTime(120 * 1000);
+
+    const seen: string[] = [];
+    await scheduler.processAlarm({
+      scheduled: (job) => {
+        seen.push(job.task);
+      },
+    });
+    expect(seen).toEqual(['first', 'second']);
+  });
+
+  it('setAlarm is called with the earliest pending job time', () => {
+    scheduler.schedule(120, 'later', {});
+    scheduler.schedule(30, 'sooner', {});
+    // Both schedule() calls invoke syncAlarm; the latest call wins. The
+    // earliest pending job's scheduled_at should be what's set.
+    const lastCall = setAlarm.mock.calls.at(-1);
+    if (!lastCall) throw new Error('expected setAlarm call');
+    expect(lastCall[0]).toBe(Date.now() + 30 * 1000);
+  });
+});
+
 describe('JobScheduler — reaper index (Bug 3)', () => {
   it('idx_jobs_reaper exists with the expected partial predicate', () => {
     const indexes = database
