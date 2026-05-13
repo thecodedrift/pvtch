@@ -36,11 +36,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm --filter @pvtch/core lint
-
+      # Type-aware lint rules (typescript-eslint/no-unsafe-*) need the
+      # generated wrangler `Env` and react-router `Route.*` types. Run the
+      # typegen + typecheck step first so lint isn't flagging every binding
+      # access as "unsafe assignment of an error typed value".
       - name: Typecheck
         run: pnpm --filter @pvtch/core typecheck
+
+      - name: Lint
+        run: pnpm --filter @pvtch/core lint
 
       - name: Unit tests
         run: pnpm --filter @pvtch/core test:unit
