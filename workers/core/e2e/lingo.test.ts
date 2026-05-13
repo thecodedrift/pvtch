@@ -70,19 +70,30 @@ const fixtures: Fixture[] = [
   },
 ];
 
-let env: Env;
-let dispose: () => Promise<void>;
+let env: Env | undefined;
+let dispose: (() => Promise<void>) | undefined;
 // AI calls require a Cloudflare account credential. CI and local
-// dev-without-login can't reach the AI binding, so we probe in beforeAll
-// and skip individual tests if it isn't available rather than failing.
+// dev-without-login can't reach the AI binding — and `getPlatformProxy`
+// itself throws "You must be logged in to use wrangler dev in remote mode"
+// before any test code runs. So both the proxy setup AND the AI probe are
+// guarded; if either fails we mark unavailable and let each test skip.
 let aiAvailable = false;
 
 beforeAll(async () => {
-  const proxy = await getPlatformProxy<Env>({
-    configPath: './wrangler.jsonc',
-  });
-  env = proxy.env;
-  dispose = proxy.dispose;
+  try {
+    const proxy = await getPlatformProxy<Env>({
+      configPath: './wrangler.jsonc',
+    });
+    env = proxy.env;
+    dispose = proxy.dispose;
+  } catch (error) {
+    console.warn(
+      '[lingo.test] getPlatformProxy failed — skipping translation tests. ' +
+        'Most likely the AI binding requires `wrangler login`.',
+      error instanceof Error ? error.message : error
+    );
+    return;
+  }
 
   try {
     const probe = await translate('hello', {
@@ -98,20 +109,22 @@ beforeAll(async () => {
   }
   if (!aiAvailable) {
     console.warn(
-      '[lingo.test] AI binding unavailable — skipping translation tests. ' +
-        'Run `wrangler login` and re-run if you want to exercise these.'
+      '[lingo.test] AI binding unreachable — skipping translation tests.'
     );
   }
 });
 
 afterAll(async () => {
-  await dispose();
+  if (dispose) await dispose();
 });
 
 describe('lingo translation', () => {
   for (const fixture of fixtures) {
     it(`translates: "${fixture.input.slice(0, 50)}..."`, async (ctx) => {
-      if (!aiAvailable) ctx.skip();
+      if (!aiAvailable || !env) {
+        ctx.skip();
+        return;
+      }
       const result = await translate(fixture.input, {
         env,
         targetLanguage: TARGET_LANGUAGE,
