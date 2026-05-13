@@ -23,6 +23,11 @@ export class User extends DurableObject<Env> implements JobSchedulerHost {
   private _profile: Profile;
   private _board: Board;
   private scheduler: JobScheduler;
+  // Per-instance latch: ensureProfileSync() is called from the lingo translate
+  // path on every chat message. The scheduler's idempotency check still costs
+  // a row read each time, so gate it behind a memory flag — we only need to
+  // re-arm once per DO lifetime. Cold starts naturally re-arm.
+  private profileSyncEnsured = false;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -56,6 +61,8 @@ export class User extends DurableObject<Env> implements JobSchedulerHost {
 
   /** Schedule the daily profile sync if not already scheduled. */
   ensureProfileSync(): void {
+    if (this.profileSyncEnsured) return;
+    this.profileSyncEnsured = true;
     this.scheduler.schedule(0, 'sync-profile', {}, { key: 'sync-profile' });
   }
 
