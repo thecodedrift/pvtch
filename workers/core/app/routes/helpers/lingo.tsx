@@ -10,13 +10,17 @@ import {
 } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import type { LingoPluginConfig } from '../../../do/plugins/lingo';
-import { isKnownLanguage } from '@/lib/constants/languages';
+import {
+  findSupportedTargetLanguage,
+  isSupportedTargetLanguage,
+} from '@/lib/constants/supported-languages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AuthGate } from '@/components/auth-gate';
 import { SecretCopy } from '@/components/secret-copy';
+import { LanguageCombobox } from '@/components/language-combobox';
 
 // Firebot setup images
 import firebotCreateEvent from './_lingo-assets/firebot/create_event.png';
@@ -149,17 +153,22 @@ export async function action({ request, context }: Route.ActionArgs) {
     .filter((b) => b.length > 0 && b.length < 64)
     .slice(0, 15);
 
-  const language = trimToLength(languageRaw, 60);
+  const languageInput = trimToLength(languageRaw, 60);
+  const resolved = findSupportedTargetLanguage(languageInput);
 
-  if (!isKnownLanguage(language)) {
+  if (!resolved) {
     return data(
       {
         error:
-          'Unrecognized language. Use a language name like "english" or a code like "en".',
+          'Unsupported target language. Use a name like "english" or a code like "en"/"eng" — see the supported list below the field.',
       },
       { status: 400 }
     );
   }
+
+  // Save the canonical lowercase name so stored config is consistent across
+  // entries even when users type codes or differently-cased names.
+  const language = resolved.name;
 
   // Save to User DO
   const stub = env.PVTCH_USER.get(
@@ -282,26 +291,24 @@ export default function HelpersLingo() {
               validators={{
                 onBlur: ({ value }) => {
                   if (!value.trim()) return 'Language is required';
-                  if (!isKnownLanguage(value))
-                    return 'Unrecognized language. Use a name like "english" or a code like "en".';
+                  if (!isSupportedTargetLanguage(value))
+                    return 'Unsupported target language. Use a name like "english" or a code like "en"/"eng".';
                 },
                 onSubmit: ({ value }) => {
                   if (!value.trim()) return 'Language is required';
-                  if (!isKnownLanguage(value))
-                    return 'Unrecognized language. Use a name like "english" or a code like "en".';
+                  if (!isSupportedTargetLanguage(value))
+                    return 'Unsupported target language. Use a name like "english" or a code like "en"/"eng".';
                 },
               }}
               children={(field) => (
                 <Field>
                   <FieldLabel htmlFor="language">Your Language</FieldLabel>
-                  <Input
+                  <LanguageCombobox
                     id="language"
-                    autoComplete="off"
-                    placeholder="english"
                     name={field.name}
                     value={field.state.value}
                     onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
+                    onChange={(v) => field.handleChange(v)}
                   />
                   {field.state.meta.errors.length > 0 ? (
                     <p className="text-sm text-destructive">
@@ -309,10 +316,11 @@ export default function HelpersLingo() {
                     </p>
                   ) : (
                     <FieldDescription>
-                      The full name of your language (e.g. &quot;english&quot;,
-                      &quot;spanish&quot;, &quot;korean&quot;) or a language
-                      code (e.g. &quot;eng&quot;, &quot;spa&quot;,
-                      &quot;kor&quot;). This is what you'll get replies in.
+                      Search by language name or 2/3-letter code. &quot;Best
+                      supported&quot; languages clear the LLM call entirely when
+                      chat is already in your language; &quot;LLM only&quot;
+                      languages still translate via the model but skip the
+                      local-detection shortcut.
                     </FieldDescription>
                   )}
                 </Field>
