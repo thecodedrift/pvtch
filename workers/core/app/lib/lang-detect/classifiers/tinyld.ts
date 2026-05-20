@@ -1,4 +1,4 @@
-import { detectAll } from 'tinyld';
+import { detectAll } from 'tinyld/heavy';
 import { normalizeLanguage } from '@/lib/constants/languages';
 import type { Classifier, ClassifierResult } from './types';
 

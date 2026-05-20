@@ -61,9 +61,9 @@ const corpus: CorpusCase[] = [
   },
   {
     input: 'haiiiiii chelle!',
-    description: 'borderline-length informal English',
-    // Length is exactly at threshold; classifiers may waffle on the
-    // non-dictionary "haiiiiii". Accept either skip outcome.
+    description: 'borderline-length informal English with non-dictionary word',
+    // Non-dictionary "haiiiiii" gives all classifiers low confidence; no
+    // decisive vote either way, so the conservative skip wins.
     expected: 'SKIP_AMBIGUOUS',
     acceptable: ['SKIP_AMBIGUOUS', 'SKIP_TARGET', 'SKIP_GIBBERISH'],
   },
