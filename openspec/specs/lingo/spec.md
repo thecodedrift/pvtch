@@ -50,7 +50,7 @@ The system SHALL skip translation for messages that begin with `!` (chat command
 
 ### Requirement: Pre-LLM detection preprocessing
 
-The system SHALL produce a "cleaned input" for the language detection pipeline by, in order: (1) stripping URLs, (2) stripping `@username` tokens that match the Twitch username pattern, (3) stripping Twitch-emote-shaped tokens that match a PascalCase/CamelCase alphanumeric pattern (leading uppercase letter followed by 2–24 alphanumeric characters), (4) trimming and collapsing whitespace. The cleaned input SHALL be used only for detection (length gate, script gate, classifier inputs); the original message SHALL remain the payload sent to the LLM when an LLM call occurs.
+The system SHALL produce a "cleaned input" for the language detection pipeline by, in order: (1) stripping URLs, (2) stripping `@username` tokens that match the Twitch username pattern, (3) stripping Twitch-emote-shaped tokens, where a token is treated as emote-shaped if it matches all-uppercase alphanumeric of 3+ characters (e.g. `LULW`, `KEKW`) OR contains an internal lowercase-to-uppercase transition (e.g. `PogChamp`, `monkaW`, `4Head`). Sentence-initial capitalized words like `Hello` are NOT stripped. (4) trimming and collapsing whitespace. The cleaned input SHALL be used only for detection (length gate, script gate, classifier inputs); the original message SHALL remain the payload sent to the LLM when an LLM call occurs.
 
 #### Scenario: Cleaned input drops URLs, mentions, and emotes
 
@@ -83,7 +83,7 @@ The system SHALL maintain a mapping from each supported target language to the s
 #### Scenario: Hangul input with English target
 
 - **WHEN** the cleaned input is `안녕하세요 친구야` and the configured target language is English
-- **THEN** the system proceeds directly to the LLM call, logged with reason `translate_script_disjoint`
+- **THEN** the system proceeds directly to the LLM call with action `TRANSLATE` and reason `script disjoint from target`
 
 #### Scenario: Mixed-script input is not short-circuited
 
@@ -92,22 +92,22 @@ The system SHALL maintain a mapping from each supported target language to the s
 
 ### Requirement: Classifier ensemble
 
-The system SHALL run a registry of local language classifiers in parallel on the cleaned input on every request that reaches this stage. The initial registry SHALL contain at least two independent classifiers: (1) `tinyld` (pure-JS), and (2) `franc-min` (pure-JS, independent codebase and training data). Each classifier SHALL produce either a `{ lang, confidence }` result on a normalized 0–1 confidence scale, or `null` (abstention) when detection fails. Adding further classifiers (e.g., a future WASM-based fastText or CLD3) SHALL be a one-file change to the registry; the decision rule SHALL remain unchanged.
+The system SHALL run a registry of local language classifiers in parallel on the cleaned input on every request that reaches this stage. Before running, classifiers SHALL be filtered to those whose vocabulary nominally includes the configured target language (`supports(target) === true`); a classifier that cannot identify the target would only ever cast "non-target" votes and would bias the ensemble. The initial registry SHALL contain at least two independent classifiers: (1) `tinyld/heavy` (pure-JS), and (2) `franc-min` (pure-JS, independent codebase and training data). Each classifier SHALL produce either a `{ lang, confidence }` result on a normalized 0–1 confidence scale, or `undefined` (abstention) when detection fails. If zero classifiers survive the target-filter (i.e., no classifier supports the configured target language), the system SHALL emit a TRANSLATE decision without running the ensemble, deferring entirely to the LLM. Adding further classifiers SHALL be a one-file change to the registry; the decision rule SHALL remain unchanged.
 
-#### Scenario: First request in a fresh isolate initializes the classifiers
+#### Scenario: Only target-supporting classifiers are consulted
 
-- **WHEN** the first translate request after a cold start reaches the classifier stage
-- **THEN** the WASM modules and language model are loaded once and reused for subsequent requests in the same isolate
-
-#### Scenario: All registered classifiers are consulted
-
-- **WHEN** a cleaned input reaches the classifier stage
-- **THEN** every classifier in the registry runs on the same input and their results (including any `null` abstentions) are collected before the decision rule is evaluated
+- **WHEN** the configured target language is `english` and the registry contains classifiers whose vocabularies include `english`
+- **THEN** every such classifier runs on the cleaned input and its `{ lang, confidence }` result (or `undefined`) is collected before the decision rule is evaluated
 
 #### Scenario: Classifier abstention does not break the pipeline
 
-- **WHEN** a classifier's WASM init or detection call throws (e.g., a Workers-incompatible WASM wrapper)
-- **THEN** the wrapper catches the error and returns `null` for that classifier; the decision rule continues with the remaining classifier results
+- **WHEN** a classifier's detection call throws
+- **THEN** the wrapper catches the error and returns `undefined` for that classifier; the decision rule continues with the remaining classifier results
+
+#### Scenario: No classifier supports the target language
+
+- **WHEN** the configured target language is in the supported list but no registered classifier has it in its vocabulary (e.g., `catalan`)
+- **THEN** the system emits a TRANSLATE decision with reason `no classifier supports target` and proceeds to the LLM call
 
 ### Requirement: Asymmetric ensemble decision rule
 
@@ -135,7 +135,7 @@ Given the classifier results and configured thresholds `τ_translate` and `τ_sk
 
 ### Requirement: Detection decision logging
 
-On every translate request that reaches the detection pipeline, the system SHALL emit a single structured log entry containing: the original input, the cleaned input, the cleaned length in graphemes, the set of detected scripts, each classifier's `{ lang, confidence }` result (when the stage was reached), the final decision (`TRANSLATE`, `SKIP_GIBBERISH`, `SKIP_SCRIPT_DISJOINT`, `SKIP_TARGET`, `SKIP_AMBIGUOUS`), and the redaction-aware request identifier already used by the route logger.
+On every translate request that reaches the detection pipeline, the system SHALL emit a single structured log entry containing: the original input, the configured target language, the cleaned input, the cleaned length in graphemes, the set of detected scripts, each classifier's `{ lang, confidence }` result (when the stage was reached), the final decision (`TRANSLATE`, `SKIP_GIBBERISH`, `SKIP_TARGET`, or `SKIP_AMBIGUOUS`), and the redaction-aware request identifier already used by the route logger.
 
 #### Scenario: Skip decision is fully recorded
 

@@ -153,6 +153,8 @@ async function handleTranslate(
   const decisionLog = {
     action: decision.action,
     reason: decision.reason,
+    input: value,
+    target: config.language,
     cleaned: decision.cleaned,
     cleanedLength: decision.cleanedLength,
     scripts: decision.scripts,
