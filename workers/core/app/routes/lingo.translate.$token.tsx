@@ -8,6 +8,7 @@ import { type LingoConfig } from '@/lib/constants/lingo';
 import type { LingoPluginConfig } from '../../do/plugins/lingo';
 import { knownBots } from '@/lib/known-bots';
 import { createLogger } from '@/lib/logger';
+import { decide } from '@/lib/lang-detect/decision';
 
 const ALWAYS_IGNORED_USERS = new Set(knownBots.map((v) => v.toLowerCase()));
 
@@ -57,14 +58,6 @@ async function handleTranslate(
 
   if (value.toLowerCase().includes('imtyping')) {
     logger.debug('Translation Skip: imtyping', {
-      user: userTrimmed,
-      input: value,
-    });
-    return new Response('', { status: 200 });
-  }
-
-  if (!value.includes(' ') && value.length <= 6) {
-    logger.debug('Short single word message, skipping', {
       user: userTrimmed,
       input: value,
     });
@@ -155,6 +148,23 @@ async function handleTranslate(
     input: value,
     config,
   });
+
+  const decision = decide(value, config.language);
+  const decisionLog = {
+    action: decision.action,
+    reason: decision.reason,
+    cleaned: decision.cleaned,
+    cleanedLength: decision.cleanedLength,
+    scripts: decision.scripts,
+    votes: decision.votes,
+  };
+
+  if (decision.action !== 'TRANSLATE') {
+    log.debug('Pre-LLM detection skip', decisionLog);
+    return new Response('', { status: 200 });
+  }
+
+  log.info('Pre-LLM detection passed', decisionLog);
 
   let result;
 
