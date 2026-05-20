@@ -317,10 +317,12 @@ export default function HelpersLingo() {
                   ) : (
                     <FieldDescription>
                       Search by language name or 2/3-letter code. &quot;Best
-                      supported&quot; languages clear the LLM call entirely when
-                      chat is already in your language; &quot;LLM only&quot;
-                      languages still translate via the model but skip the
-                      local-detection shortcut.
+                      supported&quot; languages have stronger classifier
+                      coverage and are more likely to translate only text that
+                      isn't already in your language. The rest still work, but
+                      accuracy is reduced (limited by the libraries that support
+                      them), so a few messages already in your language may get
+                      translated anyway.
                     </FieldDescription>
                   )}
                 </Field>

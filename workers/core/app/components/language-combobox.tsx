@@ -30,7 +30,7 @@ interface LanguageComboboxProps {
 }
 
 function tierLabel(tier: SupportedTargetLanguage['tier']): string {
-  return tier === 'ensemble' ? 'Best supported' : 'LLM only';
+  return tier === 'ensemble' ? 'Best supported' : 'Limited accuracy';
 }
 
 export function LanguageCombobox({
