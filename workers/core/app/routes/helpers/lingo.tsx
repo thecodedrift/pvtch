@@ -10,6 +10,7 @@ import {
 } from '@/context';
 import { normalizeKey } from '@/lib/normalize-key';
 import type { LingoPluginConfig } from '../../../do/plugins/lingo';
+import { isKnownLanguage, normalizeLanguage } from '@/lib/constants/languages';
 import {
   findSupportedTargetLanguage,
   isSupportedTargetLanguage,
@@ -156,7 +157,17 @@ export async function action({ request, context }: Route.ActionArgs) {
   const languageInput = trimToLength(languageRaw, 60);
   const resolved = findSupportedTargetLanguage(languageInput);
 
-  if (!resolved) {
+  // Grandfather existing users: if their stored value isn't on the curated
+  // supported list but IS a recognized ISO 639 language, accept it. The
+  // pipeline will fall back to LLM-only mode (no classifier supports the
+  // target, so decide() short-circuits to TRANSLATE), preserving the user's
+  // prior behavior. Only fail when the value is genuinely unrecognized.
+  let language: string;
+  if (resolved) {
+    language = resolved.name;
+  } else if (isKnownLanguage(languageInput)) {
+    language = normalizeLanguage(languageInput);
+  } else {
     return data(
       {
         error:
@@ -165,10 +176,6 @@ export async function action({ request, context }: Route.ActionArgs) {
       { status: 400 }
     );
   }
-
-  // Save the canonical lowercase name so stored config is consistent across
-  // entries even when users type codes or differently-cased names.
-  const language = resolved.name;
 
   // Save to User DO
   const stub = env.PVTCH_USER.get(
@@ -291,12 +298,18 @@ export default function HelpersLingo() {
               validators={{
                 onBlur: ({ value }) => {
                   if (!value.trim()) return 'Language is required';
-                  if (!isSupportedTargetLanguage(value))
+                  if (
+                    !isSupportedTargetLanguage(value) &&
+                    !isKnownLanguage(value)
+                  )
                     return 'Unsupported target language. Use a name like "english" or a code like "en"/"eng".';
                 },
                 onSubmit: ({ value }) => {
                   if (!value.trim()) return 'Language is required';
-                  if (!isSupportedTargetLanguage(value))
+                  if (
+                    !isSupportedTargetLanguage(value) &&
+                    !isKnownLanguage(value)
+                  )
                     return 'Unsupported target language. Use a name like "english" or a code like "en"/"eng".';
                 },
               }}
@@ -322,7 +335,7 @@ export default function HelpersLingo() {
                       isn't already in your language. The rest still work, but
                       accuracy is reduced (limited by the libraries that support
                       them), so a few messages already in your language may get
-                      translated anyway.
+                      translated anyway or reported as needing a translation.
                     </FieldDescription>
                   )}
                 </Field>
