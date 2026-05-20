@@ -72,7 +72,7 @@ export function LanguageCombobox({
             className="w-full justify-between font-normal"
             onBlur={onBlur}
           >
-            <span className={cn(!selected && 'text-muted-foreground')}>
+            <span className={cn(!value && 'text-muted-foreground')}>
               {buttonLabel}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
