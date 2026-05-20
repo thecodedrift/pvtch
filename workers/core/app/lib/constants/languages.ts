@@ -222,6 +222,7 @@ const MACROLANGUAGE_ALIASES: Record<string, string> = {
   arb: 'arabic', // Modern Standard Arabic → Arabic
   cmn: 'chinese', // Mandarin Chinese → Chinese
   pes: 'persian', // Iranian Persian → Persian
+  nob: 'norwegian', // Norwegian Bokmål → Norwegian
 };
 for (const [alias, canonical] of Object.entries(MACROLANGUAGE_ALIASES)) {
   CODE_TO_NAME[alias] = canonical;

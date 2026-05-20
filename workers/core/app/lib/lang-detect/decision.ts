@@ -9,7 +9,6 @@ import { GIBBERISH_LENGTH, TAU_TRANSLATE, TAU_SKIP } from './thresholds';
 export type DecisionAction =
   | 'TRANSLATE'
   | 'SKIP_GIBBERISH'
-  | 'SKIP_SCRIPT_DISJOINT'
   | 'SKIP_TARGET'
   | 'SKIP_AMBIGUOUS';
 

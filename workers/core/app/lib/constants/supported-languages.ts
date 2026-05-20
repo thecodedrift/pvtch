@@ -1,4 +1,4 @@
-import { LANGUAGES, type LanguageEntry } from './languages';
+import { LANGUAGES, normalizeLanguage, type LanguageEntry } from './languages';
 
 /**
  * Languages we allow users to configure as their Lingo target language.
@@ -81,17 +81,29 @@ const LLM_ONLY_CODES: ReadonlyArray<string> = [
 ];
 
 function buildSupportedList(): SupportedTargetLanguage[] {
-  const byIso3 = new Map(LANGUAGES.map((l) => [l.iso639_3, l]));
-  const out: SupportedTargetLanguage[] = [];
-  for (const code of ENSEMBLE_CODES) {
-    const entry = byIso3.get(code);
-    if (entry) out.push({ ...entry, tier: 'ensemble' });
-  }
-  for (const code of LLM_ONLY_CODES) {
-    const entry = byIso3.get(code);
-    if (entry) out.push({ ...entry, tier: 'llm-only' });
-  }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  // Index by canonical name (not iso639_3) so codes like `pes` / `cmn` / `nob`
+  // resolve through normalizeLanguage's alias map to their macrolanguage
+  // entries instead of being silently dropped.
+  const byCanonical = new Map(LANGUAGES.map((l) => [l.name, l]));
+  const resolve = (
+    code: string,
+    tier: TargetLanguageTier
+  ): SupportedTargetLanguage => {
+    const canonical = normalizeLanguage(code);
+    const entry = byCanonical.get(canonical);
+    if (!entry) {
+      throw new Error(
+        `Unknown language code in SUPPORTED_TARGET_LANGUAGES: '${code}' (normalized to '${canonical}'). ` +
+          `Add the macrolanguage alias in languages.ts or fix the code.`
+      );
+    }
+    return { ...entry, tier };
+  };
+
+  return [
+    ...ENSEMBLE_CODES.map((c) => resolve(c, 'ensemble')),
+    ...LLM_ONLY_CODES.map((c) => resolve(c, 'llm-only')),
+  ].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export const SUPPORTED_TARGET_LANGUAGES: ReadonlyArray<SupportedTargetLanguage> =
