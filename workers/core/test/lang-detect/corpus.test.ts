@@ -61,11 +61,11 @@ const corpus: CorpusCase[] = [
   },
   {
     input: 'haiiiiii chelle!',
-    description: 'borderline-length informal English with non-dictionary word',
-    // Non-dictionary "haiiiiii" gives all classifiers low confidence; no
-    // decisive vote either way, so the conservative skip wins.
-    expected: 'SKIP_AMBIGUOUS',
-    acceptable: ['SKIP_AMBIGUOUS', 'SKIP_TARGET', 'SKIP_GIBBERISH'],
+    description: 'stream-chat reaction with repeated-character run',
+    // Preprocessing collapses "haiiiiii" → "haii", taking cleaned length
+    // below the 16-grapheme gate. Catches the class of reaction noise
+    // that classifiers were misclassifying as confident non-English.
+    expected: 'SKIP_GIBBERISH',
   },
   {
     input: "내 황홀에 취해, you can't look away",
@@ -97,7 +97,13 @@ const corpus: CorpusCase[] = [
   },
   {
     input: 'heheheh',
-    description: 'reaction noise — under gibberish threshold',
+    description: 'reaction noise, under gibberish threshold',
+    expected: 'SKIP_GIBBERISH',
+  },
+  {
+    input: 'atissssssssssaaaaa',
+    description:
+      'reaction word with long consonant/vowel runs (regression: was being mistranslated to "mango" before repeat-collapse was added)',
     expected: 'SKIP_GIBBERISH',
   },
   {

@@ -39,6 +39,23 @@ describe('preprocess', () => {
   it('returns empty string when everything strips', () => {
     expect(preprocess('@a @b PogChamp LULW https://x')).toBe('');
   });
+
+  it('collapses 3+ identical char runs to 2 chars', () => {
+    expect(preprocess('atissssssssssaaaaa')).toBe('atissaa');
+    expect(preprocess('haiiiiiiiiiii chelle!')).toBe('haii chelle!');
+    expect(preprocess('yeeessss')).toBe('yeess');
+  });
+
+  it('preserves legitimate doubled letters', () => {
+    expect(preprocess('bookkeeper has Hawaii Mississippi')).toBe(
+      'bookkeeper has Hawaii Mississippi'
+    );
+  });
+
+  it('collapses repeats across the whole sentence', () => {
+    // verify the collapse runs after rejoining tokens, not only within tokens
+    expect(preprocess('hellooooooo there')).toBe('helloo there');
+  });
 });
 
 describe('graphemeLength', () => {

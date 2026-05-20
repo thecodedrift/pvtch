@@ -15,6 +15,16 @@ function isEmoteToken(token: string): boolean {
   return false;
 }
 
+// Natural language essentially never has 3+ consecutive identical letters but
+// stream chat does constantly ("yeeesss", "haiiiiii", "atissssssssssaaaaa").
+// Collapsing 3+ runs to 2 chars shrinks these reaction-style inputs below the
+// gibberish-length gate while preserving legitimate doubles like "bookkeeper",
+// "Hawaii", "Mississippi". The `u` flag keeps the regex codepoint-aware so
+// CJK and other non-BMP characters don't get split mid-character.
+const REPEATED_CHAR_RUN_RE = /(.)\1{2,}/gu;
+const collapseRepeats = (s: string): string =>
+  s.replaceAll(REPEATED_CHAR_RUN_RE, '$1$1');
+
 export function preprocess(input: string): string {
   const stripped = input.replaceAll(URL_RE, ' ').replaceAll(MENTION_RE, ' ');
   const kept: string[] = [];
@@ -23,7 +33,7 @@ export function preprocess(input: string): string {
     if (isEmoteToken(token)) continue;
     kept.push(token);
   }
-  return kept.join(' ').trim();
+  return collapseRepeats(kept.join(' ').trim());
 }
 
 const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, {
