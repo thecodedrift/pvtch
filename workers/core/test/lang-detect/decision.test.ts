@@ -6,7 +6,7 @@ import type {
 } from '../../app/lib/lang-detect/classifiers/types';
 
 function mockClassifier(name: string, result: ClassifierResult): Classifier {
-  return { name, detect: () => result };
+  return { name, detect: () => result, supports: () => true };
 }
 
 const ENG_HIGH = mockClassifier('a', { lang: 'english', confidence: 0.95 });
@@ -18,6 +18,7 @@ const ABSTAIN: Classifier = {
   name: 'abs',
   // eslint-disable-next-line unicorn/no-useless-undefined
   detect: () => undefined,
+  supports: () => true,
 };
 
 // Padding to make the cleaned input pass the 16-grapheme gate.
@@ -100,6 +101,32 @@ describe('decide() — ensemble rule', () => {
   it('Korean confident vote vs English target triggers TRANSLATE', () => {
     const d = decide(PAD, 'english', [KOR_HIGH, ABSTAIN]);
     expect(d.action).toBe('TRANSLATE');
+  });
+
+  it('excludes classifiers that do not support the target', () => {
+    const notSupportsEnglish: Classifier = {
+      name: 'no-eng',
+      detect: () => ({ lang: 'french', confidence: 0.99 }),
+      supports: (target) => target !== 'english',
+    };
+    // Without filtering, this classifier would cast a confident non-target
+    // vote (french@0.99) and force TRANSLATE. With filtering, it's excluded
+    // and only ENG_HIGH votes — which alone can't reach K=2 → SKIP_AMBIGUOUS.
+    const d = decide(PAD, 'english', [notSupportsEnglish, ENG_HIGH]);
+    expect(d.action).toBe('SKIP_AMBIGUOUS');
+    expect(d.votes.map((v) => v.classifier)).toEqual(['a']);
+  });
+
+  it('forces TRANSLATE when no classifier supports the target', () => {
+    const cantHelp: Classifier = {
+      name: 'irrelevant',
+      detect: () => ({ lang: 'french', confidence: 0.99 }),
+      supports: () => false,
+    };
+    const d = decide(PAD, 'catalan', [cantHelp, cantHelp]);
+    expect(d.action).toBe('TRANSLATE');
+    expect(d.reason).toContain('no classifier supports target');
+    expect(d.votes).toEqual([]);
   });
 
   it('records cleaned input, length, scripts, and votes', () => {

@@ -59,7 +59,30 @@ export function decide(
   }
 
   const targetNormalized = normalizeLanguage(target);
-  const votes = classifiers.map((c) => ({
+
+  // Filter to classifiers that can nominally answer "is this <target>?".
+  // A classifier whose vocabulary doesn't include the target can only ever
+  // vote non-target, which would systematically bias the ensemble toward
+  // TRANSLATE. Excluding it preserves the K=1 translate path through the
+  // remaining classifiers while removing the bias.
+  const activeClassifiers = classifiers.filter((c) => c.supports(target));
+
+  if (activeClassifiers.length === 0) {
+    // No classifier in the registry has a profile for this target — there
+    // is nothing the local pipeline can decide. Default to TRANSLATE so the
+    // LLM (which has broader coverage) gets the call. This is the "pure LLM"
+    // mode for the LLM-only tier of supported target languages.
+    return {
+      action: 'TRANSLATE',
+      reason: 'no classifier supports target',
+      cleaned,
+      cleanedLength,
+      scripts: [...scripts],
+      votes: [],
+    };
+  }
+
+  const votes = activeClassifiers.map((c) => ({
     classifier: c.name,
     result: c.detect(cleaned),
   }));

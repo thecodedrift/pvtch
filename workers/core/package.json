@@ -13,6 +13,7 @@
     "base-x": "^5.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "comfy.js": "^1.1.29",
     "consola": "^3.4.2",
     "eventemitter3": "^5.0.1",

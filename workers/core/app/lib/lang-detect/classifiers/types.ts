@@ -9,4 +9,11 @@ export type ClassifierResult = { lang: string; confidence: number } | undefined;
 export interface Classifier {
   readonly name: string;
   detect(input: string): ClassifierResult;
+  /**
+   * True when this classifier has a profile for the given target language.
+   * Used by the decision pipeline to skip classifiers that cannot nominally
+   * identify the target — including such a classifier biases the ensemble
+   * toward TRANSLATE because every vote it casts must be "non-target."
+   */
+  supports(target: string): boolean;
 }

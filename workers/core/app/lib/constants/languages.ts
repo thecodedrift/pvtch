@@ -212,6 +212,21 @@ for (const lang of LANGUAGES) {
   CODE_TO_NAME[lang.name] = lang.name;
 }
 
+// ISO 639-3 individual language codes that map to the macrolanguage names
+// already in LANGUAGES. Classifiers (franc-min especially) return the
+// individual codes; this keeps them comparable to user-supplied targets that
+// use the more common macrolanguage names/codes.
+const MACROLANGUAGE_ALIASES: Record<string, string> = {
+  zlm: 'malay', // Standard Malay → Malay
+  swh: 'swahili', // Coastal Swahili → Swahili
+  arb: 'arabic', // Modern Standard Arabic → Arabic
+  cmn: 'chinese', // Mandarin Chinese → Chinese
+  pes: 'persian', // Iranian Persian → Persian
+};
+for (const [alias, canonical] of Object.entries(MACROLANGUAGE_ALIASES)) {
+  CODE_TO_NAME[alias] = canonical;
+}
+
 /**
  * Normalize a language identifier to a full lowercase name.
  *
