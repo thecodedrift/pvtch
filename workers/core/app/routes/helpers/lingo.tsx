@@ -160,7 +160,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     return data(
       {
         error:
-          'Unsupported target language. Use a name like "english" or a code like "en"/"eng" — see the supported list below the field.',
+          'Unsupported target language. Use a name like "english" or a code like "en"/"eng". See the supported list below the field.',
       },
       { status: 400 }
     );
