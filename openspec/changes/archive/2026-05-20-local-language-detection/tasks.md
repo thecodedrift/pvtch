@@ -60,4 +60,4 @@
 ## 9. Archive readiness
 
 - [ ] 9.1 Once verified in production logs over the first 24–48 hours, capture observed initial-τ behavior (false skips, missed translates) into a follow-up note for calibration
-- [ ] 9.2 Run `pnpm openspec status --change local-language-detection` and confirm completion before archiving via `/opsx:archive`
+- [x] 9.2 Run `pnpm openspec status --change local-language-detection` and confirm completion before archiving via `/opsx:archive`
